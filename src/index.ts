@@ -1,6 +1,7 @@
 import vertexShaderSource from './vertex.glsl';
 import fragmentShaderSource from './fragment.glsl';
 import { glMatrix, mat3, mat4, vec3 } from 'gl-matrix';
+import { AirBlock, Chunk, SampleChunk } from './world';
 
 const canvas = document.querySelector('#webglCanvas') as HTMLCanvasElement;
 let gl: WebGLRenderingContext = null;
@@ -90,7 +91,6 @@ let mouseMoveY = 0;
 canvas.addEventListener('mousemove', (event) => {
     mouseMoveX += event.movementX;
     mouseMoveY += event.movementY;
-    console.log(mouseMoveX);
 }, false);
 
 function genBlocksVertices(coords: Array<Array<number>>) {
@@ -148,6 +148,24 @@ function genBlockVertices(i: number, j: number, k: number) {
     ]
 }
 
+function genChunkVertices(chunk: Chunk) {
+    const sizeX = Chunk.SizeX;
+    const sizeY = Chunk.SizeY;
+    const sizeZ = Chunk.SizeZ;
+    const vertices = [];
+    for (let k=0; k<sizeZ; k++) {
+        for (let j=0; j<sizeY; j++) {
+            for (let i=0; i<sizeX; i++) {
+                const block = chunk.blocks[Chunk.index(i, j, k)];
+                if (block !== AirBlock) {
+                    vertices.push(...genBlockVertices(i, j, k));
+                }
+            }
+        }
+    }
+    return vertices;
+}
+
 function checkCompilation(shader: WebGLShader) {
     const check = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
     if (!check) {
@@ -191,23 +209,10 @@ let uniformLocs = {
     parallelRayUni: null
 };
 
-function bufferBlocks() {
-    const cubeData = genBlocksVertices([
-        [0, 0, 0],
-        [0, 1, 0]
-    ]);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(cubeData), gl.STATIC_DRAW);
-
-    numberOfVertices = cubeData.length / 6;
-}
-
 function initWebgl() {
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
 
-    
     vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     
@@ -224,8 +229,6 @@ function initWebgl() {
     uniformLocs.viewUni = gl.getUniformLocation(program, 'view');
     uniformLocs.projUni = gl.getUniformLocation(program, 'proj');
     uniformLocs.parallelRayUni = gl.getUniformLocation(program, 'parallelRay');
-
-    bufferBlocks();
 }
 
 function startRenderLoop() {
@@ -240,7 +243,24 @@ const zUpVec = vec3.fromValues(0, 0, 1);
 let cameraAngleX = 0;
 let cameraAngleY = 0;
 
+let chunkToRender = new SampleChunk();
+let blockChanged = true;
+
+function bufferBlocks() {
+    const cubeData = genChunkVertices(chunkToRender);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(cubeData), gl.STATIC_DRAW);
+
+    numberOfVertices = cubeData.length / 6;
+}
+
 function renderLoop(now: number) {
+    if (blockChanged) {
+        bufferBlocks();
+        blockChanged = false;
+    }
+
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -274,33 +294,38 @@ function renderLoop(now: number) {
         // player position move
         const move = currentMove;
         vec3.normalize(lookAtVec, lookAtVec);
+        const dp = vec3.create();
         //console.log(lookAtVec);
         if (move & MoveForwardBit) {
-            position[0] += lookAtVec[0] * deltaMillis / 1000;
-            position[1] += lookAtVec[1] * deltaMillis / 1000;
+            dp[0] += lookAtVec[0];
+            dp[1] += lookAtVec[1];
         }
         if (move & MoveBackBit) {
-            position[0] -= lookAtVec[0] * deltaMillis / 1000;
-            position[1] -= lookAtVec[1] * deltaMillis / 1000;
+            dp[0] -= lookAtVec[0];
+            dp[1] -= lookAtVec[1];
         }
         if (move & MoveLeftBit) {
-            position[0] -= lookAtVec[1] * deltaMillis / 1000;
-            position[1] += lookAtVec[0] * deltaMillis / 1000;
+            dp[0] -= lookAtVec[1];
+            dp[1] += lookAtVec[0];
         }
         if (move & MoveRightBit) {
-            position[0] += lookAtVec[1] * deltaMillis / 1000;
-            position[1] -= lookAtVec[0] * deltaMillis / 1000;
+            dp[0] += lookAtVec[1];
+            dp[1] -= lookAtVec[0];
         }
         if (move & MoveUpBit) {
-            position[2] += zUpVec[2] * deltaMillis / 1000;
+            dp[2] += zUpVec[2];
         }
         if (move & MoveDownBit) {
-            position[2] -= zUpVec[2] * deltaMillis / 1000;
+            dp[2] -= zUpVec[2];
         }
+        vec3.normalize(dp, dp);
+        vec3.scale(dp, dp, deltaMillis/1000);
+        vec3.add(position, position, dp);
         //console.log(position);
     }
 
     const model = mat4.create();
+    mat4.scale(model, model, vec3.fromValues(0.5, 0.5, 0.5));
 
     const view = mat4.create();
     const lookTarget = vec3.create();
@@ -308,7 +333,7 @@ function renderLoop(now: number) {
     mat4.lookAt(view, position, lookTarget, zUpVec);
     
     const proj = mat4.create();
-    mat4.perspective(proj, glMatrix.toRadian(75), 16/9, 0.1, 5);
+    mat4.perspective(proj, glMatrix.toRadian(70), 16/9, 0.1, 20);
 
     gl.uniformMatrix4fv(uniformLocs.modelUni, false, model);
     gl.uniformMatrix4fv(uniformLocs.viewUni, false, view);
