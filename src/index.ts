@@ -2,19 +2,19 @@ import vertexShaderSource from './vertex.glsl';
 import fragmentShaderSource from './fragment.glsl';
 import { glMatrix, mat3, mat4, vec3 } from 'gl-matrix';
 import { AirBlock, Chunk, SampleChunk } from './world';
+import { defaultTexture, TextureInfo } from './texture';
 
 const canvas = document.querySelector('#webglCanvas') as HTMLCanvasElement;
 let gl: WebGLRenderingContext = null;
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
     gl = canvas.getContext('webgl');
     if (!gl) {
         alert("failed to initialize WebGL!");
         return;
     }
 
-    initWebgl();
-    startRenderLoop();
+    initWebgl(() => startRenderLoop());
 });
 
 const MoveForwardBit = 1;
@@ -93,57 +93,63 @@ canvas.addEventListener('mousemove', (event) => {
     mouseMoveY += event.movementY;
 }, false);
 
-function genBlocksVertices(coords: Array<Array<number>>) {
-    const base = [];
-    for (const coord of coords) {
-        base.push(...genBlockVertices(coord[0], coord[1], coord[2]));
-    }
-    return base;
-}
+// function genBlocksVertices(coords: Array<Array<number>>) {
+//     const base = [];
+//     for (const coord of coords) {
+//         base.push(...genBlockVertices(coord[0], coord[1], coord[2]));
+//     }
+//     return base;
+// }
 
-function genBlockVertices(i: number, j: number, k: number) {
+function genBlockVertices(i: number, j: number, k: number, tex: TextureInfo) {
+    const [znegx, znegy] = tex.zneg;
+    const [zposx, zposy] = tex.zpos;
+    const [xnegx, xnegy] = tex.xneg;
+    const [xposx, xposy] = tex.xpos;
+    const [ynegx, ynegy] = tex.yneg;
+    const [yposx, yposy] = tex.ypos;
     return [
-        i, j, k, 0, 0, -1,
-        i, j+1, k, 0, 0, -1,
-        i+1, j+1, k, 0, 0, -1,
-        i+1, j+1, k, 0, 0, -1,
-        i+1, j, k, 0, 0, -1,
-        i, j, k, 0, 0, -1,
+        i, j, k, 0, 0, -1, znegx, znegy,
+        i, j+1, k, 0, 0, -1, znegx, znegy+1,
+        i+1, j+1, k, 0, 0, -1, znegx+1, znegy+1,
+        i+1, j+1, k, 0, 0, -1, znegx+1, znegy+1,
+        i+1, j, k, 0, 0, -1, znegx+1, znegy,
+        i, j, k, 0, 0, -1, znegx, znegy,
 
-        i, j, k, 0, -1, 0,
-        i+1, j, k, 0, -1, 0,
-        i+1, j, k+1, 0, -1, 0,
-        i+1, j, k+1, 0, -1, 0,
-        i, j, k+1, 0, -1, 0,
-        i, j, k, 0, -1, 0,
+        i, j, k, 0, -1, 0, ynegx, ynegy,
+        i+1, j, k, 0, -1, 0, ynegx+1, ynegy,
+        i+1, j, k+1, 0, -1, 0, ynegx+1, ynegy+1,
+        i+1, j, k+1, 0, -1, 0, ynegx+1, ynegy+1, 
+        i, j, k+1, 0, -1, 0, ynegx, ynegy+1,
+        i, j, k, 0, -1, 0, ynegx, ynegy,
 
-        i+1, j, k, 1, 0, 0,
-        i+1, j+1, k, 1, 0, 0,
-        i+1, j+1, k+1, 1, 0, 0,
-        i+1, j+1, k+1, 1, 0, 0,
-        i+1, j, k+1, 1, 0, 0,
-        i+1, j, k, 1, 0, 0,
+        i+1, j, k, 1, 0, 0, xposx, xposy,
+        i+1, j+1, k, 1, 0, 0, xposx+1, xposy,
+        i+1, j+1, k+1, 1, 0, 0, xposx+1, xposy+1,
+        i+1, j+1, k+1, 1, 0, 0, xposx+1, xposy+1,
+        i+1, j, k+1, 1, 0, 0, xposx, xposy+1,
+        i+1, j, k, 1, 0, 0, xposx, xposy,
 
-        i+1, j+1, k, 0, 1, 0,
-        i, j+1, k, 0, 1, 0,
-        i, j+1, k+1, 0, 1, 0,
-        i, j+1, k+1, 0, 1, 0,
-        i+1, j+1, k+1, 0, 1, 0,
-        i+1, j+1, k, 0, 1, 0,
+        i+1, j+1, k, 0, 1, 0, yposx+1, yposy,
+        i, j+1, k, 0, 1, 0, yposx, yposy,
+        i, j+1, k+1, 0, 1, 0, yposx, yposy+1,
+        i, j+1, k+1, 0, 1, 0, yposx, yposy+1,
+        i+1, j+1, k+1, 0, 1, 0, yposx+1, yposy+1,
+        i+1, j+1, k, 0, 1, 0, yposx+1, yposy,
 
-        i, j+1, k, -1, 0, 0,
-        i, j, k, -1, 0, 0,
-        i, j, k+1, -1, 0, 0,
-        i, j, k+1, -1, 0, 0,
-        i, j+1, k+1, -1, 0, 0,
-        i, j+1, k, -1, 0, 0,
+        i, j+1, k, -1, 0, 0, xnegx+1, xnegy,
+        i, j, k, -1, 0, 0, xnegx, xnegy,
+        i, j, k+1, -1, 0, 0, xnegx, xnegy+1,
+        i, j, k+1, -1, 0, 0, xnegx, xnegy+1,
+        i, j+1, k+1, -1, 0, 0, xnegx+1, xnegy+1,
+        i, j+1, k, -1, 0, 0, xnegx+1, xnegy,
 
-        i, j, k+1, 0, 0, 1,
-        i+1, j, k+1, 0, 0, 1,
-        i+1, j+1, k+1, 0, 0, 1,
-        i+1, j+1, k+1, 0, 0, 1,
-        i, j+1, k+1, 0, 0, 1,
-        i, j, k+1, 0, 0, 1
+        i, j, k+1, 0, 0, 1, zposx, zposy,
+        i+1, j, k+1, 0, 0, 1, zposx+1, zposy,
+        i+1, j+1, k+1, 0, 0, 1, zposx+1, zposy+1,
+        i+1, j+1, k+1, 0, 0, 1, zposx+1, zposy+1,
+        i, j+1, k+1, 0, 0, 1, zposx, zposy+1,
+        i, j, k+1, 0, 0, 1, zposx, zposy,
 
     ]
 }
@@ -158,7 +164,8 @@ function genChunkVertices(chunk: Chunk) {
             for (let i=0; i<sizeX; i++) {
                 const block = chunk.blocks[Chunk.index(i, j, k)];
                 if (block !== AirBlock) {
-                    vertices.push(...genBlockVertices(i, j, k));
+                    const texture = defaultTexture.get(block);
+                    vertices.push(...genBlockVertices(i, j, k, texture));
                 }
             }
         }
@@ -209,26 +216,54 @@ let uniformLocs = {
     parallelRayUni: null
 };
 
-function initWebgl() {
+let program: WebGLShader;
+
+function bufferTextures(done: () => void) {
+    const texture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    const image = document.createElement('img');
+    image.src = 'texture.png';
+    image.addEventListener('load', () => {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    
+        const tex0Uni = gl.getUniformLocation(program, 'tex0');
+        gl.uniform1i(tex0Uni, 0);
+
+        done();
+    });
+}
+
+function initWebgl(done: () => void) {
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
 
     vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     
-    const program = buildAndUseShader(vertexShaderSource, fragmentShaderSource);
+    program = buildAndUseShader(vertexShaderSource, fragmentShaderSource);
 
     const positionAttr = gl.getAttribLocation(program, 'position');
     const normalAttr = gl.getAttribLocation(program, 'normal');
+    const texCoordAttr = gl.getAttribLocation(program, 'textureCoord');
     gl.enableVertexAttribArray(positionAttr);
-    gl.vertexAttribPointer(positionAttr, 3, gl.BYTE, false, 6, 0);
+    gl.vertexAttribPointer(positionAttr, 3, gl.BYTE, false, 8, 0);
     gl.enableVertexAttribArray(normalAttr);
-    gl.vertexAttribPointer(normalAttr, 3, gl.BYTE, false, 6, 3);
+    gl.vertexAttribPointer(normalAttr, 3, gl.BYTE, false, 8, 3);
+    gl.enableVertexAttribArray(texCoordAttr);
+    gl.vertexAttribPointer(texCoordAttr, 2, gl.BYTE, false, 8, 6);
 
     uniformLocs.modelUni = gl.getUniformLocation(program, 'model');
     uniformLocs.viewUni = gl.getUniformLocation(program, 'view');
     uniformLocs.projUni = gl.getUniformLocation(program, 'proj');
     uniformLocs.parallelRayUni = gl.getUniformLocation(program, 'parallelRay');
+
+    bufferTextures(() => done());
 }
 
 function startRenderLoop() {
@@ -237,7 +272,7 @@ function startRenderLoop() {
 }
 
 let lookAtVec = vec3.fromValues(1, 1, 0);
-let lastRender;
+let lastRender: number;
 const zUpVec = vec3.fromValues(0, 0, 1);
 
 let cameraAngleX = 0;
@@ -252,7 +287,7 @@ function bufferBlocks() {
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(cubeData), gl.STATIC_DRAW);
 
-    numberOfVertices = cubeData.length / 6;
+    numberOfVertices = cubeData.length / 8;
 }
 
 function renderLoop(now: number) {
@@ -348,5 +383,4 @@ function renderLoop(now: number) {
     lastRender = now;
 
     requestAnimationFrame(renderLoop);
-    
 }

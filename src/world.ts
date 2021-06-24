@@ -7,7 +7,7 @@ export class Block {
 }
 
 export const AirBlock = new Block(0);
-export const DirtBlock = new Block(1);
+export const GrassBlock = new Block(1);
 
 export class Chunk {
     static readonly SizeX = 16;
@@ -45,7 +45,7 @@ export class SampleChunk extends Chunk {
         super(0, 0, 0);
         for (let i=0; i<Chunk.SizeX; i++) {
             for (let j=0; j<Chunk.SizeY; j++) {
-                this.blocks[Chunk.index(i, j, 3)] = DirtBlock;
+                this.blocks[Chunk.index(i, j, 3)] = GrassBlock;
             }
         }
     }
