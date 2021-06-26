@@ -1,6 +1,8 @@
 import vertexShaderSource from './vertex.glsl';
 import fragmentShaderSource from './fragment.glsl';
-import { glMatrix, mat3, mat4, vec3 } from 'gl-matrix';
+import pickerVertexShaderSource from './picker_vertex.glsl';
+import pickerFragmentShaderSource from './picker_fragment.glsl';
+import { glMatrix, mat3, mat4, vec3, vec4 } from 'gl-matrix';
 import { AirBlock, Chunk, SampleChunk } from './world';
 import { defaultTexture, TextureInfo } from './texture';
 
@@ -82,8 +84,31 @@ canvas.addEventListener('keyup', (event) => {
 });
 
 canvas.addEventListener('click', (event) => {
-    canvas.requestPointerLock();
+    if (document.pointerLockElement === canvas || (document as any).mozPointerLockElement === canvas) {
+        gameHandleMouseClick(event);
+    } else {
+        canvas.requestPointerLock();
+    }
 });
+
+function gameHandleMouseClick(event: MouseEvent) {
+    // const rect = canvas.getBoundingClientRect();
+    // const mouseX = event.offsetX - rect.left;
+    // const mouseY = event.offsetY - rect.top;
+    // console.log(mouseX + " " + mouseY);
+
+    const mouseX = canvas.width / 2;
+    const mouseY = canvas.height / 2;
+    console.log(mouseX + ' ' + mouseY);
+    getBlockCoordFromPixelCoord(mouseX, mouseY);
+}
+
+function getBlockCoordFromPixelCoord(px: number, py: number) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, depthFb);
+    const pixels = new Uint8Array(4);
+    gl.readPixels(px, py, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    console.log(pixels[0] + ' ' + pixels[1] + ' ' + pixels[2] + ' ' + pixels[3]);
+}
 
 let mouseMoveX = 0;
 let mouseMoveY = 0;
@@ -92,14 +117,6 @@ canvas.addEventListener('mousemove', (event) => {
     mouseMoveX += event.movementX;
     mouseMoveY += event.movementY;
 }, false);
-
-// function genBlocksVertices(coords: Array<Array<number>>) {
-//     const base = [];
-//     for (const coord of coords) {
-//         base.push(...genBlockVertices(coord[0], coord[1], coord[2]));
-//     }
-//     return base;
-// }
 
 function genBlockVertices(i: number, j: number, k: number, tex: TextureInfo) {
     const [znegx, znegy] = tex.zneg;
@@ -154,11 +171,11 @@ function genBlockVertices(i: number, j: number, k: number, tex: TextureInfo) {
     ]
 }
 
-function genChunkVertices(chunk: Chunk) {
+function genChunkVertices(chunk: Chunk): number[] {
     const sizeX = Chunk.SizeX;
     const sizeY = Chunk.SizeY;
     const sizeZ = Chunk.SizeZ;
-    const vertices = [];
+    const vertices: number[] = [];
     for (let k=0; k<sizeZ; k++) {
         for (let j=0; j<sizeY; j++) {
             for (let i=0; i<sizeX; i++) {
@@ -187,7 +204,7 @@ function checkProgram(program: WebGLShader) {
     }
 }
 
-function buildAndUseShader(vertexShaderSource: string, fragmentShaderSource: string) {
+function buildShader(vertexShaderSource: string, fragmentShaderSource: string) {
     const vertexShader = gl.createShader(gl.VERTEX_SHADER);
     const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
     const program = gl.createProgram();
@@ -201,13 +218,18 @@ function buildAndUseShader(vertexShaderSource: string, fragmentShaderSource: str
     gl.attachShader(program, fragmentShader);
     gl.linkProgram(program);
     checkProgram(program);
-    gl.useProgram(program);
 
     return program;
 }
 
 let vertexBuffer = null;
 let numberOfVertices = 0;
+
+let mainAttributes = {
+    position: null,
+    normal: null,
+    texCoord: null
+};
 
 let uniformLocs = {
     modelUni: null,
@@ -216,9 +238,22 @@ let uniformLocs = {
     parallelRayUni: null
 };
 
+let pickerUniforms = {
+    modelUni: null,
+    viewUni: null,
+    projUni: null,
+    blockCoord: null
+};
+
+let pickerAttributes = {
+    position: null
+};
+
 let program: WebGLShader;
+let pickerProgram: WebGLShader;
 
 function bufferTextures(done: () => void) {
+    gl.useProgram(program);
     const texture = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -239,47 +274,62 @@ function bufferTextures(done: () => void) {
     });
 }
 
-let depthTexture;
+let depthColorTexture;
 let depthBuffer;
 let depthFb;
+let depthVertexBuffer;
 
 function initWebgl(done: () => void) {
+    //console.log(gl.getParameter(gl.MAX_VERTEX_ATTRIBS));
+
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
 
     vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     
-    program = buildAndUseShader(vertexShaderSource, fragmentShaderSource);
+    program = buildShader(vertexShaderSource, fragmentShaderSource);
+    pickerProgram = buildShader(pickerVertexShaderSource, pickerFragmentShaderSource);
 
+    // main shader uniforms
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     const positionAttr = gl.getAttribLocation(program, 'position');
     const normalAttr = gl.getAttribLocation(program, 'normal');
     const texCoordAttr = gl.getAttribLocation(program, 'textureCoord');
+    mainAttributes.position = positionAttr;
+    mainAttributes.normal = normalAttr;
+    mainAttributes.texCoord = texCoordAttr;
     gl.enableVertexAttribArray(positionAttr);
-    gl.vertexAttribPointer(positionAttr, 3, gl.BYTE, false, 8, 0);
     gl.enableVertexAttribArray(normalAttr);
-    gl.vertexAttribPointer(normalAttr, 3, gl.BYTE, false, 8, 3);
     gl.enableVertexAttribArray(texCoordAttr);
-    gl.vertexAttribPointer(texCoordAttr, 2, gl.BYTE, false, 8, 6);
 
     uniformLocs.modelUni = gl.getUniformLocation(program, 'model');
     uniformLocs.viewUni = gl.getUniformLocation(program, 'view');
     uniformLocs.projUni = gl.getUniformLocation(program, 'proj');
     uniformLocs.parallelRayUni = gl.getUniformLocation(program, 'parallelRay');
 
-
     // framebuffer for depth
-    depthTexture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, depthTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    depthColorTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, depthColorTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.canvas.width, gl.canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     depthBuffer = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, gl.canvas.width, gl.canvas.height);
     depthFb = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFb);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, depthTexture, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, depthColorTexture, 0);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer);
+    depthVertexBuffer = gl.createBuffer();
+
+    // picker shader uniforms
+    gl.bindBuffer(gl.ARRAY_BUFFER, depthVertexBuffer);
+    const pickerPositionAttr = gl.getAttribLocation(pickerProgram, 'position');
+    pickerAttributes.position = pickerPositionAttr;
+    gl.enableVertexAttribArray(pickerPositionAttr);
+    pickerUniforms.blockCoord = gl.getUniformLocation(pickerProgram, 'blockCoord');
+    pickerUniforms.modelUni = gl.getUniformLocation(pickerProgram, 'model');
+    pickerUniforms.viewUni = gl.getUniformLocation(pickerProgram, 'view');
+    pickerUniforms.projUni = gl.getUniformLocation(pickerProgram, 'proj');
 
     bufferTextures(() => done());
 }
@@ -296,7 +346,7 @@ const zUpVec = vec3.fromValues(0, 0, 1);
 let cameraAngleX = 0;
 let cameraAngleY = 0;
 
-let chunkToRender = new SampleChunk();
+let chunkToRender: Chunk = new SampleChunk();
 let blockChanged = true;
 
 function bufferBlocks() {
@@ -309,14 +359,15 @@ function bufferBlocks() {
 }
 
 function renderLoop(now: number) {
-    if (blockChanged) {
-        bufferBlocks();
-        blockChanged = false;
-    }
+    handleMovement(now);
+    renderCanvas();
+    renderDepthFb();
+    blockChanged = false;
+    lastRender = now;
+    requestAnimationFrame(renderLoop);
+}
 
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
+function handleMovement(now: number) {
     if (now) {
         const deltaMillis = now - lastRender;
 
@@ -376,6 +427,19 @@ function renderLoop(now: number) {
         vec3.add(position, position, dp);
         //console.log(position);
     }
+}
+
+function renderCanvas() {
+    if (blockChanged) {
+        bufferBlocks();
+    }
+
+    gl.useProgram(program);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     const model = mat4.create();
     mat4.scale(model, model, vec3.fromValues(0.5, 0.5, 0.5));
@@ -395,10 +459,120 @@ function renderLoop(now: number) {
     vec3.normalize(parallelRay, parallelRay);
     gl.uniform3fv(uniformLocs.parallelRayUni, parallelRay);
 
+    const positionAttr = mainAttributes.position;
+    const normalAttr = mainAttributes.normal;
+    const texCoordAttr = mainAttributes.texCoord;
+    gl.vertexAttribPointer(positionAttr, 3, gl.BYTE, false, 8, 0);
+    gl.vertexAttribPointer(normalAttr, 3, gl.BYTE, false, 8, 3);
+    gl.vertexAttribPointer(texCoordAttr, 2, gl.BYTE, false, 8, 6);
     gl.drawArrays(gl.TRIANGLES, 0, numberOfVertices);
     gl.flush();
+}
 
-    lastRender = now;
+function renderDepthFb() {
+    gl.useProgram(pickerProgram);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, depthFb);
+    gl.bindBuffer(gl.ARRAY_BUFFER, depthVertexBuffer);
 
-    requestAnimationFrame(renderLoop);
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    const model = mat4.create();
+    mat4.scale(model, model, vec3.fromValues(0.5, 0.5, 0.5));
+
+    const view = mat4.create();
+    const lookTarget = vec3.create();
+    vec3.add(lookTarget, position, lookAtVec);
+    mat4.lookAt(view, position, lookTarget, zUpVec);
+    
+    const proj = mat4.create();
+    mat4.perspective(proj, glMatrix.toRadian(70), 16/9, 0.1, 20);
+
+    gl.uniformMatrix4fv(pickerUniforms.modelUni, false, model);
+    gl.uniformMatrix4fv(pickerUniforms.viewUni, false, view);
+    gl.uniformMatrix4fv(pickerUniforms.projUni, false, proj);
+
+    renderDepthBlocks();
+}
+
+function renderDepthBlocks() {
+    function renderDepthBlock(x: number, y: number, z: number) {
+        const i = x;
+        const j = y;
+        const k = z;
+        const renderData = [
+            [
+            i, j, k,
+            i, j+1, k,
+            i+1, j+1, k,
+            i+1, j+1, k,
+            i+1, j, k, 
+            i, j, k],
+    
+            [
+            i, j, k, 
+            i+1, j, k,
+            i+1, j, k+1, 
+            i+1, j, k+1,
+            i, j, k+1, 
+            i, j, k],
+    
+            [
+            i+1, j, k,
+            i+1, j+1, k, 
+            i+1, j+1, k+1, 
+            i+1, j+1, k+1, 
+            i+1, j, k+1,
+            i+1, j, k],
+    
+            [
+            i+1, j+1, k, 
+            i, j+1, k,
+            i, j+1, k+1,
+            i, j+1, k+1, 
+            i+1, j+1, k+1,
+            i+1, j+1, k],
+    
+            [
+            i, j+1, k,
+            i, j, k, 
+            i, j, k+1,
+            i, j, k+1, 
+            i, j+1, k+1, 
+            i, j+1, k],
+    
+            [
+            i, j, k+1, 
+            i+1, j, k+1,
+            i+1, j+1, k+1,
+            i+1, j+1, k+1, 
+            i, j+1, k+1, 
+            i, j, k+1]
+        ];
+        for (let face=0; face<6; face++) {
+            const bx = i;
+            const by = j;
+            const bz = k;
+            const bf = face;
+            const blockCoord = [bx, by, bz, bf];
+            gl.uniform4iv(pickerUniforms.blockCoord, new Int32Array(blockCoord));
+            gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(renderData[face]), gl.DYNAMIC_DRAW);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
+    }
+    const sizeX = Chunk.SizeX;
+    const sizeY = Chunk.SizeY;
+    const sizeZ = Chunk.SizeZ;
+    const chunk = chunkToRender;
+    gl.vertexAttribPointer(pickerAttributes.position, 3, gl.BYTE, false, 0, 0);
+    for (let k=0; k<sizeZ; k++) {
+        for (let j=0; j<sizeY; j++) {
+            for (let i=0; i<sizeX; i++) {
+                const block = chunk.blocks[Chunk.index(i, j, k)];
+                if (block !== AirBlock) {
+                    renderDepthBlock(i, j, k);
+                }
+            }
+        }
+    }
 }

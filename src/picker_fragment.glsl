@@ -1,7 +1,9 @@
 precision mediump float;
 
-uniform vec4 u_id;
+uniform ivec4 blockCoord;
 
 void main() {
-    gl_FragColor = u_id;
+    vec4 fBlockCoord = vec4(blockCoord);
+    fBlockCoord = (fBlockCoord + 128.0) / 255.0;
+    gl_FragColor = fBlockCoord;
 }
