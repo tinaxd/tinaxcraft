@@ -105,16 +105,16 @@ function gameHandleMouseClick(event: MouseEvent) {
     const mouseX = canvas.width / 2;
     const mouseY = canvas.height / 2;
     console.log(mouseX + ' ' + mouseY);
-    getBlockCoordFromPixelCoord(mouseX, mouseY);
+    getBlockCoordFromPixelCoord(mouseX, mouseY, event.button);
 }
 
-function getBlockCoordFromPixelCoord(px: number, py: number) {
+function getBlockCoordFromPixelCoord(px: number, py: number, mouseButton: number) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFb);
     const pixels = new Uint8Array(4);
     gl.readPixels(px, py, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     for (let i=0; i<4; i++) pixels[i] -= 128;
     console.log(pixels[0] + ' ' + pixels[1] + ' ' + pixels[2] + ' ' + pixels[3]);
-    handleBlockClick(pixels[0], pixels[1], pixels[2], pixels[3], 0);
+    handleBlockClick(pixels[0], pixels[1], pixels[2], pixels[3], mouseButton);
 }
 
 const ZNEG = 0;
@@ -132,18 +132,34 @@ function neighborCoord(x: number, y: number, z: number, face: number): [number, 
     case YPOS: return [x, y+1, z];
     case ZNEG: return [x, y, z-1];
     case ZPOS: return [x, y, z+1];
+    default: return null;
     }
 }
 
 function handleBlockClick(x: number, y: number, z: number, face: number, clickButton: number) {
-    const isInRange = (x, y, z) => {
-        return (0 <= x || x < 16) && (0 <= y || y < 16) && (0 <= z || z < 16);
+    const isInRange = (x: number, y: number, z: number): boolean => {
+        return (0 <= x && x < 16) && (0 <= y && y < 16) && (0 <= z && z < 16);
     }
-    const [nx, ny, nz] = neighborCoord(x, y, z, face);
-    if (isInRange(nx, ny, nz)) {
-        //console.log("block plac")
-        chunkToRender.blocks[Chunk.index(nx, ny, nz)] = GrassBlock;
-        blockChanged = true;
+    switch (clickButton) {
+    case 0: { // block destruction
+        if (isInRange(x, y, z)) {
+            chunkToRender.blocks[Chunk.index(x, y, z)] = AirBlock;
+            blockChanged = true;
+        }
+        break;
+    }
+    case 2: { // block construction
+        const tmp = neighborCoord(x, y, z, face);
+        if (tmp == null) return;
+        const [nx, ny, nz] = tmp;
+        console.log(nx + " " + ny + " " + nz);
+        if (isInRange(nx, ny, nz)) {
+            //console.log("block plac")
+            chunkToRender.blocks[Chunk.index(nx, ny, nz)] = GrassBlock;
+            blockChanged = true;
+        }
+        break;
+    }
     }
 }
 
@@ -636,20 +652,25 @@ function renderCenterCursor() {
     gl.bindBuffer(gl.ARRAY_BUFFER, cursorVertexBuffer);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     if (!cursorBufferFilled) {
+        const width = gl.canvas.width;
+        const height = gl.canvas.height;
+        const size = Math.min(width*0.05, height*0.05);
+        const cw = size/width;
+        const ch = size/height;
         const cursorVertices = [
-            -0.2, 0.1,
-            -0.2, -0.1,
-            0.2, -0.1,
-            0.2, -0.1,
-            0.2, 0.1,
-            -0.2, 0.1,
+            -cw, ch/2,
+            -cw, -ch/2,
+            cw, -ch/2,
+            cw, -ch/2,
+            cw, ch/2,
+            -cw, ch/2,
 
-            -0.1, 0.2,
-            -0.1, -0.2,
-            0.1, -0.2,
-            0.1, -0.2,
-            0.1, 0.2,
-            -0.1, 0.2
+            -cw/2, ch,
+            -cw/2, -ch,
+            cw/2, -ch,
+            cw/2, -ch,
+            cw/2, ch,
+            -cw/2, ch
         ];
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cursorVertices), gl.STATIC_DRAW);
     }
