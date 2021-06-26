@@ -239,6 +239,10 @@ function bufferTextures(done: () => void) {
     });
 }
 
+let depthTexture;
+let depthBuffer;
+let depthFb;
+
 function initWebgl(done: () => void) {
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
@@ -262,6 +266,20 @@ function initWebgl(done: () => void) {
     uniformLocs.viewUni = gl.getUniformLocation(program, 'view');
     uniformLocs.projUni = gl.getUniformLocation(program, 'proj');
     uniformLocs.parallelRayUni = gl.getUniformLocation(program, 'parallelRay');
+
+
+    // framebuffer for depth
+    depthTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    depthBuffer = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
+    depthFb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, depthFb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, depthTexture, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer);
 
     bufferTextures(() => done());
 }
@@ -313,10 +331,10 @@ function renderLoop(now: number) {
         } else if (cameraAngleX < Math.PI) {
             cameraAngleX += 2 * Math.PI;
         }
-        if (cameraAngleY > Math.PI / 2) {
-            cameraAngleY = Math.PI / 2;
-        } else if (cameraAngleY < -Math.PI / 2) {
-            cameraAngleY = -Math.PI / 2;
+        if (cameraAngleY >= Math.PI / 2) {
+            cameraAngleY = Math.PI / 2 - 0.001;
+        } else if (cameraAngleY <= -Math.PI / 2) {
+            cameraAngleY = -Math.PI / 2 + 0.001;
         }
 
         lookAtVec[0] = Math.cos(cameraAngleX) * Math.cos(cameraAngleY);
