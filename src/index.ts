@@ -34,7 +34,7 @@ const MoveRightBit = 1 << 3;
 const MoveUpBit = 1 << 4;
 const MoveDownBit = 1 << 5;
 let currentMove = 0;
-let position = vec3.create();
+let position = vec3.fromValues(0, 0, 10);
 let lastChunkCoord: [number, number] = null;
 
 canvas.addEventListener('keydown', (event) => {
@@ -134,6 +134,13 @@ const YPOS = 3;
 const XNEG = 4;
 const ZPOS = 5;
 
+const ZNEGF = 1 << 0;
+const YNEGF = 1 << 1;
+const XPOSF = 1 << 2;
+const YPOSF = 1 << 3;
+const XNEGF = 1 << 4;
+const ZPOSF = 1 << 5;
+
 function neighborCoord(x: number, y: number, z: number, face: number): [number, number, number] {
     switch (face) {
     case XNEG: return [x-1, y, z];
@@ -179,6 +186,21 @@ function handleBlockClick(i: number, j: number, k: number, face: number, clickBu
             chunk.blocks[Chunk.index(rix, riy, nz)] = GrassBlock;
             playSFX('block-destroy');
             worldChanged = true;
+
+            // const exists = (i: number, j: number, k: number, dir: string) => {
+            //     if (i < 0 || i >= Chunk.SizeX || j < 0 || j >= Chunk.SizeY || k < 0 || k >= Chunk.SizeZ) {
+            //         console.log(dir + " not exists");
+            //     }
+            //     const block = chunk.blocks[Chunk.index(i, j, k)];
+            //     if (block != null && block !== AirBlock) console.log(dir + " exists");
+            //     else console.log(dir + " not exists");
+            // };
+            // exists(rix+1, riy, nz, "xpos");
+            // exists(rix-1, riy, nz, "xneg");
+            // exists(rix, riy+1, nz, "ypos");
+            // exists(rix, riy-1, nz, "yneg");
+            // exists(rix, riy, nz+1, "zpos");
+            // exists(rix, riy, nz-1, "zneg");
         }
         break;
     }
@@ -193,7 +215,7 @@ canvas.addEventListener('mousemove', (event) => {
     mouseMoveY += event.movementY;
 }, false);
 
-function genBlockVertices(i: number, j: number, k: number, tex: TextureInfo, basePosition: [number, number, number]) {
+function genBlockVertices(i: number, j: number, k: number, tex: TextureInfo, basePosition: [number, number, number], faceToDraw: number) {
     const [znegx, znegy] = tex.zneg;
     const [zposx, zposy] = tex.zpos;
     const [xnegx, xnegy] = tex.xneg;
@@ -203,64 +225,105 @@ function genBlockVertices(i: number, j: number, k: number, tex: TextureInfo, bas
     i += basePosition[0];
     j += basePosition[1];
     k += basePosition[2];
-    return [
-        i, j, k, 0, 0, -1, znegx, znegy,
-        i, j+1, k, 0, 0, -1, znegx, znegy+1,
-        i+1, j+1, k, 0, 0, -1, znegx+1, znegy+1,
-        i+1, j+1, k, 0, 0, -1, znegx+1, znegy+1,
-        i+1, j, k, 0, 0, -1, znegx+1, znegy,
-        i, j, k, 0, 0, -1, znegx, znegy,
+    const buffer = new Array<number>(8*6*6);
+    let idx = 0;
 
-        i, j, k, 0, -1, 0, ynegx, ynegy,
-        i+1, j, k, 0, -1, 0, ynegx+1, ynegy,
-        i+1, j, k+1, 0, -1, 0, ynegx+1, ynegy+1,
-        i+1, j, k+1, 0, -1, 0, ynegx+1, ynegy+1, 
-        i, j, k+1, 0, -1, 0, ynegx, ynegy+1,
-        i, j, k, 0, -1, 0, ynegx, ynegy,
+    const add = (i: number, j: number, k: number, ni: number, nj: number, nk: number, texs: number, text: number) => {
+        buffer[idx++] = i;
+        buffer[idx++] = j;
+        buffer[idx++] = k;
+        buffer[idx++] = ni;
+        buffer[idx++] = nj;
+        buffer[idx++] = nk;
+        buffer[idx++] = texs;
+        buffer[idx++] = text;
+    };
 
-        i+1, j, k, 1, 0, 0, xposx, xposy,
-        i+1, j+1, k, 1, 0, 0, xposx+1, xposy,
-        i+1, j+1, k+1, 1, 0, 0, xposx+1, xposy+1,
-        i+1, j+1, k+1, 1, 0, 0, xposx+1, xposy+1,
-        i+1, j, k+1, 1, 0, 0, xposx, xposy+1,
-        i+1, j, k, 1, 0, 0, xposx, xposy,
+    if (faceToDraw & ZNEGF) {
+        add(i, j, k, 0, 0, -1, znegx, znegy);
+        add(i, j+1, k, 0, 0, -1, znegx, znegy+1);
+        add(i+1, j+1, k, 0, 0, -1, znegx+1, znegy+1);
+        add(i+1, j+1, k, 0, 0, -1, znegx+1, znegy+1);
+        add(i+1, j, k, 0, 0, -1, znegx+1, znegy);
+        add(i, j, k, 0, 0, -1, znegx, znegy);
+    }
 
-        i+1, j+1, k, 0, 1, 0, yposx+1, yposy,
-        i, j+1, k, 0, 1, 0, yposx, yposy,
-        i, j+1, k+1, 0, 1, 0, yposx, yposy+1,
-        i, j+1, k+1, 0, 1, 0, yposx, yposy+1,
-        i+1, j+1, k+1, 0, 1, 0, yposx+1, yposy+1,
-        i+1, j+1, k, 0, 1, 0, yposx+1, yposy,
+    if (faceToDraw & YNEGF) {
+        add(i, j, k, 0, -1, 0, ynegx, ynegy);
+        add(i+1, j, k, 0, -1, 0, ynegx+1, ynegy);
+        add(i+1, j, k+1, 0, -1, 0, ynegx+1, ynegy+1);
+        add(i+1, j, k+1, 0, -1, 0, ynegx+1, ynegy+1);
+        add(i, j, k+1, 0, -1, 0, ynegx, ynegy+1);
+        add(i, j, k, 0, -1, 0, ynegx, ynegy);
+    }
 
-        i, j+1, k, -1, 0, 0, xnegx+1, xnegy,
-        i, j, k, -1, 0, 0, xnegx, xnegy,
-        i, j, k+1, -1, 0, 0, xnegx, xnegy+1,
-        i, j, k+1, -1, 0, 0, xnegx, xnegy+1,
-        i, j+1, k+1, -1, 0, 0, xnegx+1, xnegy+1,
-        i, j+1, k, -1, 0, 0, xnegx+1, xnegy,
+    if (faceToDraw & XPOSF) {
+        add(i+1, j, k, 1, 0, 0, xposx, xposy);
+        add(i+1, j+1, k, 1, 0, 0, xposx+1, xposy);
+        add(i+1, j+1, k+1, 1, 0, 0, xposx+1, xposy+1);
+        add(i+1, j+1, k+1, 1, 0, 0, xposx+1, xposy+1);
+        add(i+1, j, k+1, 1, 0, 0, xposx, xposy+1);
+        add(i+1, j, k, 1, 0, 0, xposx, xposy);
+    }
 
-        i, j, k+1, 0, 0, 1, zposx, zposy,
-        i+1, j, k+1, 0, 0, 1, zposx+1, zposy,
-        i+1, j+1, k+1, 0, 0, 1, zposx+1, zposy+1,
-        i+1, j+1, k+1, 0, 0, 1, zposx+1, zposy+1,
-        i, j+1, k+1, 0, 0, 1, zposx, zposy+1,
-        i, j, k+1, 0, 0, 1, zposx, zposy,
+    if (faceToDraw & YPOSF) {
+        add(i+1, j+1, k, 0, 1, 0, yposx+1, yposy);
+        add(i, j+1, k, 0, 1, 0, yposx, yposy);
+        add(i, j+1, k+1, 0, 1, 0, yposx, yposy+1);
+        add(i, j+1, k+1, 0, 1, 0, yposx, yposy+1);
+        add(i+1, j+1, k+1, 0, 1, 0, yposx+1, yposy+1);
+        add(i+1, j+1, k, 0, 1, 0, yposx+1, yposy);
+    }
 
-    ]
+    if (faceToDraw & XNEGF) {
+        add(i, j+1, k, -1, 0, 0, xnegx+1, xnegy);
+        add(i, j, k, -1, 0, 0, xnegx, xnegy);
+        add(i, j, k+1, -1, 0, 0, xnegx, xnegy+1);
+        add(i, j, k+1, -1, 0, 0, xnegx, xnegy+1);
+        add(i, j+1, k+1, -1, 0, 0, xnegx+1, xnegy+1);
+        add(i, j+1, k, -1, 0, 0, xnegx+1, xnegy);
+    }
+
+    if (faceToDraw & ZPOSF) {
+        add(i, j, k+1, 0, 0, 1, zposx, zposy);
+        add(i+1, j, k+1, 0, 0, 1, zposx+1, zposy);
+        add(i+1, j+1, k+1, 0, 0, 1, zposx+1, zposy+1);
+        add(i+1, j+1, k+1, 0, 0, 1, zposx+1, zposy+1);
+        add(i, j+1, k+1, 0, 0, 1, zposx, zposy+1);
+        add(i, j, k+1, 0, 0, 1, zposx, zposy);
+    }
+
+    return buffer.slice(0, idx);
 }
 
-function genChunkVertices(chunk: Chunk, basePositionX: number, basePositionY: number, basePositionZ: number): number[] {
+function genChunkVertices(chunk: Chunk, basePositionX: number, basePositionY: number, basePositionZ: number, faceToDraw: number): number[] {
     const sizeX = Chunk.SizeX;
     const sizeY = Chunk.SizeY;
     const sizeZ = Chunk.SizeZ;
     const vertices: number[] = [];
+    const exists = (x: number, y: number, z: number): boolean => {
+        if (x < 0 || x >= sizeX || y < 0 || y >= sizeY || z < 0 || z >= sizeZ) {
+            return false;
+        }
+        const block = chunk.blocks[Chunk.index(x, y, z)];
+        return block != null && block !== AirBlock;
+    };
+    
     for (let k=0; k<sizeZ; k++) {
         for (let j=0; j<sizeY; j++) {
             for (let i=0; i<sizeX; i++) {
                 const block = chunk.blocks[Chunk.index(i, j, k)];
                 if (block !== AirBlock) {
+                    let ftd = faceToDraw;
+                    if (((ftd & XNEGF) != 0) && exists(i-1, j, k)) ftd &= ~XNEGF;
+                    if (((ftd & XPOSF) != 0) && exists(i+1, j, k)) ftd &= ~XPOSF;
+                    if (((ftd & YNEGF) != 0) && exists(i, j-1, k)) ftd &= ~YNEGF;
+                    if (((ftd & YPOSF) != 0) && exists(i, j+1, k)) ftd &= ~YPOSF;
+                    if (((ftd & ZNEGF) != 0) && exists(i, j, k-1)) ftd &= ~ZNEGF;
+                    if (((ftd & ZPOSF) != 0) && exists(i, j, k+1)) ftd &= ~ZPOSF;
+                    if (ftd === 0) continue;
                     const texture = defaultTexture.get(block);
-                    vertices.push(...genBlockVertices(i, j, k, texture, [basePositionX, basePositionY, basePositionZ]));
+                    vertices.push(...genBlockVertices(i, j, k, texture, [basePositionX, basePositionY, basePositionZ], ftd));
                 }
             }
         }
@@ -461,21 +524,21 @@ function nearbyChunkCoords(): Array<[number, number]> {
     return chunks;
 }
 
-function genNearbyChunkVertices(): number[] {
+function genNearbyChunkVertices(facing: number): number[] {
     const chunkCoords = nearbyChunkCoords();
     const vertices: number[] = [];
     for (const [cx, cy] of chunkCoords) {
         const [px, py] = chunkCoordOfPlayerPosition();
         const [rcx, rcy] = [cx-px, cy-py];
         const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
-        vertices.push(...genChunkVertices(chunk, rcx*Chunk.SizeX, rcy*Chunk.SizeY, 0));
+        vertices.push(...genChunkVertices(chunk, rcx*Chunk.SizeX, rcy*Chunk.SizeY, 0, facing));
         //vertices.push(...genChunkVertices(chunk, 0, 0, 0));
     }
     return vertices;
 }
 
-function bufferBlocks() {
-    const cubeData = genNearbyChunkVertices();
+function bufferBlocks(facing: number) {
+    const cubeData = genNearbyChunkVertices(facing);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(cubeData), gl.STATIC_DRAW);
@@ -570,9 +633,24 @@ function handleMovement(now: number) {
     }
 }
 
+// let lastFacesToDraw = 0;
+
+// function calculateFacesToDraw(): number {
+//     let faces = XNEGF | XPOSF | YNEGF | YPOSF;
+//     // if (lookAtVec[0] > 0) faces |= XNEGF;
+//     // else if (lookAtVec[0] < 0) faces |= XPOSF;
+
+//     // if (lookAtVec[1] > 0) faces |= YNEGF;
+//     // else if (lookAtVec[1] < 0) faces |= YPOSF;
+
+//     if (lookAtVec[2] > 0) faces |= ZNEGF;
+//     else if (lookAtVec[2] < 0) faces |= ZPOSF;
+//     return faces;
+// }
+
 function renderCanvas() {
     if (worldChanged || chunkMoved) {
-        bufferBlocks();
+        bufferBlocks(XNEGF | XPOSF | YNEGF | YPOSF | ZNEGF | ZPOSF);
     }
 
     gl.useProgram(program);
@@ -617,6 +695,7 @@ function renderCanvas() {
     gl.vertexAttribPointer(positionAttr, 3, gl.BYTE, false, 8, 0);
     gl.vertexAttribPointer(normalAttr, 3, gl.BYTE, false, 8, 3);
     gl.vertexAttribPointer(texCoordAttr, 2, gl.BYTE, false, 8, 6);
+    //console.log(numberOfVertices);
     gl.drawArrays(gl.TRIANGLES, 0, numberOfVertices);
 }
 

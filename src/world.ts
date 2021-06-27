@@ -22,9 +22,9 @@ export class Chunk {
     _j: number;
 
     constructor(i: number, j: number) {
-        this.blocks = [];
+        this.blocks = new Array<Block>(Chunk.SizeX*Chunk.SizeY*Chunk.SizeZ);
         for (let i=0; i<Chunk.SizeX*Chunk.SizeY*Chunk.SizeZ; i++) {
-            this.blocks.push(AirBlock);
+            this.blocks[i] = AirBlock;
         }
         this._i = i;
         this._j = j;

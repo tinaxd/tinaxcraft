@@ -34,7 +34,10 @@ export class PerlinChunkGenerator implements ChunkGenerator {
         for (let j=0; j<Chunk.SizeY; j++) {
             for (let i=0; i<Chunk.SizeX; i++) {
                 const k = heightMap[Chunk.SizeX*j+i];
-                chunk.blocks[Chunk.index(i, j, k)] = GrassBlock;
+                for (let z=0; z<=k; z++) {
+                    chunk.blocks[Chunk.index(i, j, z)] = GrassBlock;
+                }
+                //chunk.blocks[Chunk.index(i, j, k)] = GrassBlock;
             }
         }
         return chunk;
