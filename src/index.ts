@@ -301,11 +301,11 @@ function genChunkVertices(chunk: Chunk, basePositionX: number, basePositionY: nu
     const sizeY = Chunk.SizeY;
     const sizeZ = Chunk.SizeZ;
     const vertices: number[] = [];
-    const exists = (x: number, y: number, z: number): boolean => {
-        if (x < 0 || x >= sizeX || y < 0 || y >= sizeY || z < 0 || z >= sizeZ) {
+    const exists = (i: number, j: number, k: number): boolean => {
+        if (i < 0 || i >= sizeX || j < 0 || j >= sizeY || k < 0 || k >= sizeZ) {
             return false;
         }
-        const block = chunk.blocks[Chunk.index(x, y, z)];
+        const block = chunk.blocks[Chunk.index(i, j, k)];
         return block != null && block !== AirBlock;
     };
     
@@ -760,7 +760,7 @@ function relativeIndexInChunk(i: number, j: number): [number, number] {
 let lastDepthBlockVerticesNumber = 0;
 
 function renderDepthBlocks() {
-    function appendDepthBlock(out: number[], x: number, y: number, z: number) {
+    function appendDepthBlock(out: number[], x: number, y: number, z: number, faceToDraw: number) {
         const i = x;
         const j = y;
         const k = z;
@@ -773,56 +773,72 @@ function renderDepthBlocks() {
         const f3 = 3;
         const f4 = 4;
         const f5 = 5;
-        const renderData = [
-            
-            i, j, k, bx, by, bz, f0,
-            i, j+1, k, bx, by, bz, f0,
-            i+1, j+1, k, bx, by, bz, f0,
-            i+1, j+1, k, bx, by, bz, f0,
-            i+1, j, k,  bx, by, bz, f0,
-            i, j, k, bx, by, bz, f0,
+        const buffer = new Array<number>(7*6*6);
+        let idx = 0;
+        const add = (i, j, k, bx, by, bz, f) => {
+            buffer[idx++] = i;
+            buffer[idx++] = j;
+            buffer[idx++] = k;
+            buffer[idx++] = bx;
+            buffer[idx++] = by;
+            buffer[idx++] = bz;
+            buffer[idx++] = f;
+        };
+
+        if (faceToDraw & ZNEGF) {
+            add(i, j, k, bx, by, bz, f0);
+            add(i, j+1, k, bx, by, bz, f0);
+            add(i+1, j+1, k, bx, by, bz, f0);
+            add(i+1, j+1, k, bx, by, bz, f0);
+            add(i+1, j, k,  bx, by, bz, f0);
+            add(i, j, k, bx, by, bz, f0);
+        }
     
-            
-            i, j, k,  bx, by, bz, f1,
-            i+1, j, k, bx, by, bz, f1,
-            i+1, j, k+1,  bx, by, bz, f1,
-            i+1, j, k+1, bx, by, bz, f1,
-            i, j, k+1,  bx, by, bz, f1,
-            i, j, k, bx, by, bz, f1,
+        if (faceToDraw & YNEGF) {
+            add(i, j, k,  bx, by, bz, f1);
+            add(i+1, j, k, bx, by, bz, f1);
+            add(i+1, j, k+1,  bx, by, bz, f1);
+            add(i+1, j, k+1, bx, by, bz, f1);
+            add(i, j, k+1,  bx, by, bz, f1);
+            add(i, j, k, bx, by, bz, f1);
+        }
     
-            
-            i+1, j, k, bx, by, bz, f2,
-            i+1, j+1, k,  bx, by, bz, f2,
-            i+1, j+1, k+1,  bx, by, bz, f2,
-            i+1, j+1, k+1,  bx, by, bz, f2,
-            i+1, j, k+1, bx, by, bz, f2,
-            i+1, j, k, bx, by, bz, f2,
+        if (faceToDraw & XPOSF) {
+            add(i+1, j, k, bx, by, bz, f2);
+            add(i+1, j+1, k,  bx, by, bz, f2);
+            add(i+1, j+1, k+1,  bx, by, bz, f2);
+            add(i+1, j+1, k+1,  bx, by, bz, f2);
+            add(i+1, j, k+1, bx, by, bz, f2);
+            add(i+1, j, k, bx, by, bz, f2);
+        }
     
-            
-            i+1, j+1, k,  bx, by, bz, f3,
-            i, j+1, k, bx, by, bz, f3,
-            i, j+1, k+1, bx, by, bz, f3,
-            i, j+1, k+1,  bx, by, bz, f3,
-            i+1, j+1, k+1, bx, by, bz, f3,
-            i+1, j+1, k, bx, by, bz, f3,
+        if (faceToDraw & YPOSF) {
+            add(i+1, j+1, k,  bx, by, bz, f3);
+            add(i, j+1, k, bx, by, bz, f3);
+            add(i, j+1, k+1, bx, by, bz, f3);
+            add(i, j+1, k+1,  bx, by, bz, f3);
+            add(i+1, j+1, k+1, bx, by, bz, f3);
+            add(i+1, j+1, k, bx, by, bz, f3);
+        }
     
-            
-            i, j+1, k, bx, by, bz, f4,
-            i, j, k,  bx, by, bz, f4,
-            i, j, k+1, bx, by, bz, f4,
-            i, j, k+1,  bx, by, bz, f4,
-            i, j+1, k+1,  bx, by, bz, f4,
-            i, j+1, k, bx, by, bz, f4,
+        if (faceToDraw & XNEGF) {
+            add(i, j+1, k, bx, by, bz, f4);
+            add(i, j, k,  bx, by, bz, f4);
+            add(i, j, k+1, bx, by, bz, f4);
+            add(i, j, k+1,  bx, by, bz, f4);
+            add(i, j+1, k+1,  bx, by, bz, f4);
+            add(i, j+1, k, bx, by, bz, f4);
+        }
     
-            
-            i, j, k+1,  bx, by, bz, f5,
-            i+1, j, k+1, bx, by, bz, f5,
-            i+1, j+1, k+1, bx, by, bz, f5,
-            i+1, j+1, k+1,  bx, by, bz, f5,
-            i, j+1, k+1,  bx, by, bz, f5,
-            i, j, k+1, bx, by, bz, f5,
-        ];
-        out.push(...renderData);
+        if (faceToDraw & ZPOSF) {
+            add(i, j, k+1,  bx, by, bz, f5);
+            add(i+1, j, k+1, bx, by, bz, f5);
+            add(i+1, j+1, k+1, bx, by, bz, f5);
+            add(i+1, j+1, k+1,  bx, by, bz, f5);
+            add(i, j+1, k+1,  bx, by, bz, f5);
+            add(i, j, k+1, bx, by, bz, f5);
+        }
+        out.push(...buffer.slice(0, idx));
     }
     const sizeX = Chunk.SizeX;
     const sizeY = Chunk.SizeY;
@@ -832,15 +848,31 @@ function renderDepthBlocks() {
     if (worldChanged || chunkMoved) {
         const vertices: number[] = [];
         const [px, py] = chunkCoordOfPlayerPosition();
+        const faceToDraw = XNEGF | XPOSF | YNEGF | YPOSF | ZNEGF | ZPOSF;
         for (const [cx, cy] of nearbyChunkCoords()) {
             const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
+            const exists = (i: number, j: number, k: number): boolean => {
+                if (i < 0 || i >= sizeX || j < 0 || j >= sizeY || k < 0 || k >= sizeZ) {
+                    return false;
+                }
+                const block = chunk.blocks[Chunk.index(i, j, k)];
+                return block != null && block !== AirBlock;
+            };
             for (let k=0; k<sizeZ; k++) {
                 for (let j=0; j<sizeY; j++) {
                     for (let i=0; i<sizeX; i++) {
                         const block = chunk.blocks[Chunk.index(i, j, k)];
                         if (block !== AirBlock) {
                             const [rcx, rcy] = [cx-px, cy-py];
-                            appendDepthBlock(vertices, rcx*Chunk.SizeX+i, rcy*Chunk.SizeY+j, k);
+                            let ftd = faceToDraw;
+                            if (((ftd & XNEGF) != 0) && exists(i-1, j, k)) ftd &= ~XNEGF;
+                            if (((ftd & XPOSF) != 0) && exists(i+1, j, k)) ftd &= ~XPOSF;
+                            if (((ftd & YNEGF) != 0) && exists(i, j-1, k)) ftd &= ~YNEGF;
+                            if (((ftd & YPOSF) != 0) && exists(i, j+1, k)) ftd &= ~YPOSF;
+                            if (((ftd & ZNEGF) != 0) && exists(i, j, k-1)) ftd &= ~ZNEGF;
+                            if (((ftd & ZPOSF) != 0) && exists(i, j, k+1)) ftd &= ~ZPOSF;
+                            if (ftd === 0) continue;
+                            appendDepthBlock(vertices, rcx*Chunk.SizeX+i, rcy*Chunk.SizeY+j, k, ftd);
                         }
                     }
                 }
