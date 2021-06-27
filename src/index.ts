@@ -8,6 +8,7 @@ import { glMatrix, mat3, mat4, vec3, vec4 } from 'gl-matrix';
 import { AirBlock, Chunk, GrassBlock, SampleChunk, World } from './world';
 import { defaultTexture, TextureInfo } from './texture';
 import { mod } from './util';
+import { enableAudio, playSFX } from './sound';
 
 const canvas = document.querySelector('#webglCanvas') as HTMLCanvasElement;
 let gl: WebGLRenderingContext = null;
@@ -91,6 +92,7 @@ canvas.addEventListener('keyup', (event) => {
 });
 
 canvas.addEventListener('click', (event) => {
+    enableAudio();
     if (document.pointerLockElement === canvas || (document as any).mozPointerLockElement === canvas) {
         gameHandleMouseClick(event);
     } else {
@@ -174,6 +176,7 @@ function handleBlockClick(i: number, j: number, k: number, face: number, clickBu
             const chunk = getChunk(nx, ny);
             const [rix, riy] = relativeIndexInChunk(nx, ny);
             chunk.blocks[Chunk.index(rix, riy, nz)] = GrassBlock;
+            playSFX('block-destroy');
             worldChanged = true;
         }
         break;
