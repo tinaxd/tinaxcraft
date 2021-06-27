@@ -33,6 +33,7 @@ const MoveUpBit = 1 << 4;
 const MoveDownBit = 1 << 5;
 let currentMove = 0;
 let position = vec3.create();
+let lastChunkCoord: [number, number] = null;
 
 canvas.addEventListener('keydown', (event) => {
     if (event.repeat) return false;
@@ -113,9 +114,14 @@ function getBlockCoordFromPixelCoord(px: number, py: number, mouseButton: number
     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFb);
     const pixels = new Uint8Array(4);
     gl.readPixels(px, py, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-    for (let i=0; i<4; i++) pixels[i] -= 128;
-    console.log(pixels[0] + ' ' + pixels[1] + ' ' + pixels[2] + ' ' + pixels[3]);
-    handleBlockClick(pixels[0], pixels[1], pixels[2], pixels[3], mouseButton);
+    const coord = [
+        pixels[0] - 128,
+        pixels[1] - 128,
+        pixels[2] - 128,
+        pixels[3] - 128
+    ];
+    console.log(coord[0] + ' ' + coord[1] + ' ' + coord[2] + ' ' + coord[3]);
+    handleBlockClick(coord[0], coord[1], coord[2], coord[3], mouseButton);
 }
 
 const ZNEG = 0;
@@ -139,13 +145,23 @@ function neighborCoord(x: number, y: number, z: number, face: number): [number, 
 
 function handleBlockClick(x: number, y: number, z: number, face: number, clickButton: number) {
     const isInRange = (x: number, y: number, z: number): boolean => {
-        return (0 <= x && x < 16) && (0 <= y && y < 16) && (0 <= z && z < 16);
+        return (-64 <= x && x < 64) && (-64 <= y && y < 64) && (-64 <= z && z < 64);
     }
+    const getChunk = (): Chunk => {
+        const [cx, cy] = chunkCoordOfPlayerPosition();
+        const [rcx, rcy] = chunkCoordOfPosition(x, y);
+        return currentWorld.getLoadedChunkOrCreate(cx+rcx, cy+rcy);
+    };
+    const chunkCoord = (x: number, y: number): [number, number] => {
+        return [mod(x, ChunkXPos), mod(y, ChunkYPos)];
+    };
     switch (clickButton) {
     case 0: { // block destruction
         if (isInRange(x, y, z)) {
             // TODO:
-            //chunkToRender.blocks[Chunk.index(x, y, z)] = AirBlock;
+            const chunk = getChunk();
+            const [cx, cy] = chunkCoord(x, y);
+            chunk.blocks[Chunk.index(cx, cy, z)] = AirBlock;
             blockChanged = true;
         }
         break;
@@ -158,7 +174,9 @@ function handleBlockClick(x: number, y: number, z: number, face: number, clickBu
         if (isInRange(nx, ny, nz)) {
             //console.log("block plac")
             // TODO:
-            //chunkToRender.blocks[Chunk.index(nx, ny, nz)] = GrassBlock;
+            const chunk = getChunk();
+            const [cx, cy] = chunkCoord(nx, ny);
+            chunk.blocks[Chunk.index(cx, cy, nz)] = GrassBlock;
             blockChanged = true;
         }
         break;
@@ -300,12 +318,12 @@ let uniformLocs = {
 let pickerUniforms = {
     modelUni: null,
     viewUni: null,
-    projUni: null,
-    blockCoord: null
+    projUni: null
 };
 
 let pickerAttributes = {
-    position: null
+    position: null,
+    blockCoord: null
 };
 
 let cursorAttributes = {
@@ -389,10 +407,10 @@ function initWebgl(done: () => void) {
 
     // picker shader uniforms
     gl.bindBuffer(gl.ARRAY_BUFFER, depthVertexBuffer);
-    const pickerPositionAttr = gl.getAttribLocation(pickerProgram, 'position');
-    pickerAttributes.position = pickerPositionAttr;
-    gl.enableVertexAttribArray(pickerPositionAttr);
-    pickerUniforms.blockCoord = gl.getUniformLocation(pickerProgram, 'blockCoord');
+    pickerAttributes.position = gl.getAttribLocation(pickerProgram, 'position');
+    gl.enableVertexAttribArray(pickerAttributes.position);
+    pickerAttributes.blockCoord = gl.getAttribLocation(pickerProgram, 'blockCoord');
+    gl.enableVertexAttribArray(pickerAttributes.blockCoord);
     pickerUniforms.modelUni = gl.getUniformLocation(pickerProgram, 'model');
     pickerUniforms.viewUni = gl.getUniformLocation(pickerProgram, 'view');
     pickerUniforms.projUni = gl.getUniformLocation(pickerProgram, 'proj');
@@ -412,6 +430,12 @@ function startRenderLoop() {
     renderLoop(lastRender+1);
 }
 
+const BlockXScale = 0.5;
+const BlockYScale = 0.5;
+const BlockZScale = 0.5;
+const ChunkXPos = 255 / Chunk.SizeX * BlockXScale;
+const ChunkYPos = 255 / Chunk.SizeY * BlockYScale;
+
 let lookAtVec = vec3.fromValues(1, 1, 0);
 let lastRender: number;
 const zUpVec = vec3.fromValues(0, 0, 1);
@@ -423,10 +447,7 @@ let currentWorld: World = new World();
 let blockChanged = true;
 
 function nearbyChunkCoords(): Array<[number, number]> {
-    const x = position[0];
-    const y = position[1];
-    const cx = Math.floor(x/16);
-    const cy = Math.floor(y/16);
+    const [cx, cy] = chunkCoordOfPlayerPosition();
     const chunks = [];
     for (let i=-1; i<=1; i++) {
         for (let j=-1; j<=1; j++) {
@@ -443,6 +464,7 @@ function genNearbyChunkVertices(): number[] {
         const [rcx, rcy] = relativeChunkCoord(cx, cy);
         const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
         vertices.push(...genChunkVertices(chunk, rcx*Chunk.SizeX, rcy*Chunk.SizeY, 0));
+        //vertices.push(...genChunkVertices(chunk, 0, 0, 0));
     }
     return vertices;
 }
@@ -468,6 +490,9 @@ function renderLoop(now: number) {
 }
 
 function handleMovement(now: number) {
+    if (lastChunkCoord == null) {
+        lastChunkCoord = chunkCoordOfPlayerPosition();
+    }
     if (now) {
         const deltaMillis = now - lastRender;
 
@@ -526,6 +551,16 @@ function handleMovement(now: number) {
         vec3.scale(dp, dp, deltaMillis/1000);
         vec3.add(position, position, dp);
         //console.log(position);
+
+        const currentChunkCoord = chunkCoordOfPlayerPosition();
+        if ((currentChunkCoord[0] != lastChunkCoord[0])
+            || (currentChunkCoord[1] != lastChunkCoord[1])) {
+            console.log(lastChunkCoord + " " + currentChunkCoord);
+            lastChunkCoord[0] = currentChunkCoord[0];
+            lastChunkCoord[1] = currentChunkCoord[1];
+            blockChanged = true;
+        }
+        //console.log(position);
     }
 }
 
@@ -542,12 +577,22 @@ function renderCanvas() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     const model = mat4.create();
-    mat4.scale(model, model, vec3.fromValues(0.5, 0.5, 0.5));
+    //const xInC = mod(position[0], Chunk.SizeX);
+    //const yInC = mod(position[1], Chunk.SizeY);
+    //mat4.translate(model, model, vec3.fromValues(-xInC, -yInC, 0));
+    mat4.scale(model, model, vec3.fromValues(BlockXScale, BlockYScale, BlockZScale));
 
     const view = mat4.create();
+    const normalPosition = vec3.create();
+    const [rpx, rpy] = relativePositionInChunk(position[0], position[1]);
+    normalPosition[0] = rpx;
+    normalPosition[1] = rpy;
+    normalPosition[2] = position[2];
     const lookTarget = vec3.create();
-    vec3.add(lookTarget, position, lookAtVec);
-    mat4.lookAt(view, position, lookTarget, zUpVec);
+    vec3.add(lookTarget, normalPosition, lookAtVec);
+    mat4.lookAt(view, normalPosition, lookTarget, zUpVec);
+    //console.log(ChunkXPos);
+    //console.log("position: " + position + " normalPosition: " + normalPosition);
     
     const proj = mat4.create();
     mat4.perspective(proj, glMatrix.toRadian(70), 16/9, 0.1, 20);
@@ -594,10 +639,23 @@ function renderDepthFb() {
     renderDepthBlocks();
 }
 
+function chunkCoordOfPosition(x: number, y: number): [number, number] {
+    return [Math.floor(x/ChunkXPos), Math.floor(y/ChunkYPos)];
+}
+
 function chunkCoordOfPlayerPosition(): [number, number] {
-    const x = position[0];
-    const y = position[1];
-    return [mod(x, Chunk.SizeX), mod(y, Chunk.SizeY)];
+    return chunkCoordOfPosition(position[0], position[1]);
+}
+
+function relativePositionInChunk(x: number, y: number): [number, number] {
+    // return [
+    //     mod(x + ChunkXPos/2.0, ChunkXPos),
+    //     mod(y + ChunkYPos/2.0, ChunkYPos)
+    // ];
+    return [
+        mod(x, ChunkXPos),
+        mod(y, ChunkYPos)
+    ];
 }
 
 function relativeChunkCoord(cx: number, cy: number): [number, number] {
@@ -606,74 +664,76 @@ function relativeChunkCoord(cx: number, cy: number): [number, number] {
 }
 
 function renderDepthBlocks() {
-    function renderDepthBlock(x: number, y: number, z: number) {
+    function appendDepthBlock(out: number[], x: number, y: number, z: number) {
         const i = x;
         const j = y;
         const k = z;
+        const bx = i;
+        const by = j;
+        const bz = k;
+        const f0 = 0;
+        const f1 = 1;
+        const f2 = 2;
+        const f3 = 3;
+        const f4 = 4;
+        const f5 = 5;
         const renderData = [
-            [
-            i, j, k,
-            i, j+1, k,
-            i+1, j+1, k,
-            i+1, j+1, k,
-            i+1, j, k, 
-            i, j, k],
+            
+            i, j, k, bx, by, bz, f0,
+            i, j+1, k, bx, by, bz, f0,
+            i+1, j+1, k, bx, by, bz, f0,
+            i+1, j+1, k, bx, by, bz, f0,
+            i+1, j, k,  bx, by, bz, f0,
+            i, j, k, bx, by, bz, f0,
     
-            [
-            i, j, k, 
-            i+1, j, k,
-            i+1, j, k+1, 
-            i+1, j, k+1,
-            i, j, k+1, 
-            i, j, k],
+            
+            i, j, k,  bx, by, bz, f1,
+            i+1, j, k, bx, by, bz, f1,
+            i+1, j, k+1,  bx, by, bz, f1,
+            i+1, j, k+1, bx, by, bz, f1,
+            i, j, k+1,  bx, by, bz, f1,
+            i, j, k, bx, by, bz, f1,
     
-            [
-            i+1, j, k,
-            i+1, j+1, k, 
-            i+1, j+1, k+1, 
-            i+1, j+1, k+1, 
-            i+1, j, k+1,
-            i+1, j, k],
+            
+            i+1, j, k, bx, by, bz, f2,
+            i+1, j+1, k,  bx, by, bz, f2,
+            i+1, j+1, k+1,  bx, by, bz, f2,
+            i+1, j+1, k+1,  bx, by, bz, f2,
+            i+1, j, k+1, bx, by, bz, f2,
+            i+1, j, k, bx, by, bz, f2,
     
-            [
-            i+1, j+1, k, 
-            i, j+1, k,
-            i, j+1, k+1,
-            i, j+1, k+1, 
-            i+1, j+1, k+1,
-            i+1, j+1, k],
+            
+            i+1, j+1, k,  bx, by, bz, f3,
+            i, j+1, k, bx, by, bz, f3,
+            i, j+1, k+1, bx, by, bz, f3,
+            i, j+1, k+1,  bx, by, bz, f3,
+            i+1, j+1, k+1, bx, by, bz, f3,
+            i+1, j+1, k, bx, by, bz, f3,
     
-            [
-            i, j+1, k,
-            i, j, k, 
-            i, j, k+1,
-            i, j, k+1, 
-            i, j+1, k+1, 
-            i, j+1, k],
+            
+            i, j+1, k, bx, by, bz, f4,
+            i, j, k,  bx, by, bz, f4,
+            i, j, k+1, bx, by, bz, f4,
+            i, j, k+1,  bx, by, bz, f4,
+            i, j+1, k+1,  bx, by, bz, f4,
+            i, j+1, k, bx, by, bz, f4,
     
-            [
-            i, j, k+1, 
-            i+1, j, k+1,
-            i+1, j+1, k+1,
-            i+1, j+1, k+1, 
-            i, j+1, k+1, 
-            i, j, k+1]
+            
+            i, j, k+1,  bx, by, bz, f5,
+            i+1, j, k+1, bx, by, bz, f5,
+            i+1, j+1, k+1, bx, by, bz, f5,
+            i+1, j+1, k+1,  bx, by, bz, f5,
+            i, j+1, k+1,  bx, by, bz, f5,
+            i, j, k+1, bx, by, bz, f5,
         ];
-        for (let face=0; face<6; face++) {
-            const bx = i;
-            const by = j;
-            const bz = k;
-            const bf = face;
-            const blockCoord = [bx, by, bz, bf];
-            gl.uniform4iv(pickerUniforms.blockCoord, new Int32Array(blockCoord));
-            gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(renderData[face]), gl.DYNAMIC_DRAW);
-            gl.drawArrays(gl.TRIANGLES, 0, 6);
-        }
+        out.push(...renderData);
     }
     const sizeX = Chunk.SizeX;
     const sizeY = Chunk.SizeY;
     const sizeZ = Chunk.SizeZ;
-    gl.vertexAttribPointer(pickerAttributes.position, 3, gl.BYTE, false, 0, 0);
+    gl.vertexAttribPointer(pickerAttributes.position, 3, gl.BYTE, false, 7, 0);
+    gl.vertexAttribPointer(pickerAttributes.blockCoord, 4, gl.BYTE, false, 7, 3);
+    const vertices: number[] = [];
     for (const [cx, cy] of nearbyChunkCoords()) {
         const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
         for (let k=0; k<sizeZ; k++) {
@@ -682,12 +742,14 @@ function renderDepthBlocks() {
                     const block = chunk.blocks[Chunk.index(i, j, k)];
                     if (block !== AirBlock) {
                         const [rcx, rcy] = relativeChunkCoord(cx, cy);
-                        renderDepthBlock(rcx*Chunk.SizeX+i, rcy*Chunk.SizeY+j, k);
+                        appendDepthBlock(vertices, rcx*Chunk.SizeX+i, rcy*Chunk.SizeY+j, k);
                     }
                 }
             }
         }
     }
+    gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(vertices), gl.DYNAMIC_DRAW);
+    gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 7);
 }
 
 let cursorBufferFilled = false;

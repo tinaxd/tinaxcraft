@@ -70,7 +70,7 @@ export class World {
                 return chunk;
             }
         }
-        const newChunk = new SampleChunk();
+        const newChunk = new SampleChunk(Math.abs(cx) + Math.abs(cy));
         newChunk.baseX = cx;
         newChunk.baseY = cy;
         this.loadedChunks.push(newChunk);
@@ -84,11 +84,12 @@ export class World {
 }
 
 export class SampleChunk extends Chunk {
-    constructor() {
+    constructor(z?: number) {
+        z = (z == null) ? 3 : z*z;
         super(0, 0);
         for (let i=0; i<Chunk.SizeX; i++) {
             for (let j=0; j<Chunk.SizeY; j++) {
-                this.blocks[Chunk.index(i, j, 3)] = GrassBlock;
+                this.blocks[Chunk.index(i, j, z)] = GrassBlock;
             }
         }
     }
