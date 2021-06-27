@@ -19,7 +19,6 @@
     "webpack-dev-server": "^3.11.2"
   },
   "dependencies": {
-    "@types/noisejs": "^0.0.28",
     "gl-matrix": "^3.3.0",
     "noisejs": "^2.1.0"
   }

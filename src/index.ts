@@ -9,6 +9,7 @@ import { AirBlock, Chunk, GrassBlock, SampleChunk, World } from './world';
 import { defaultTexture, TextureInfo } from './texture';
 import { mod } from './util';
 import { enableAudio, playSFX } from './sound';
+import { PerlinChunkGenerator } from './worldgen';
 
 const canvas = document.querySelector('#webglCanvas') as HTMLCanvasElement;
 let gl: WebGLRenderingContext = null;
@@ -443,7 +444,7 @@ const zUpVec = vec3.fromValues(0, 0, 1);
 let cameraAngleX = 0;
 let cameraAngleY = 0;
 
-let currentWorld: World = new World();
+let currentWorld: World = new World(new PerlinChunkGenerator());
 let worldChanged = true;
 let chunkMoved = true;
 

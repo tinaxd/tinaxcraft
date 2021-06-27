@@ -1,3 +1,5 @@
+import { ChunkGenerator } from './worldgen'
+
 export class Block {
     id: number;
 
@@ -16,14 +18,16 @@ export class Chunk {
 
     blocks: Array<Block>;
 
-    baseX: number;
-    baseY: number;
+    _i: number;
+    _j: number;
 
-    constructor(baseX: number, baseY: number) {
+    constructor(i: number, j: number) {
         this.blocks = [];
         for (let i=0; i<Chunk.SizeX*Chunk.SizeY*Chunk.SizeZ; i++) {
             this.blocks.push(AirBlock);
         }
+        this._i = i;
+        this._j = j;
     }
 
     static index(rx: number, ry: number, rz: number): number {
@@ -32,8 +36,8 @@ export class Chunk {
 
     worldCoord(rx: number, ry: number, rz: number): [number, number, number] {
         return [
-            this.baseX * Chunk.SizeX + rx,
-            this.baseY * Chunk.SizeY + ry,
+            this._i * Chunk.SizeX + rx,
+            this._j * Chunk.SizeY + ry,
             rz
         ];
     }
@@ -41,14 +45,16 @@ export class Chunk {
 
 export class World {
     private loadedChunks: Array<Chunk>;
+    private chunkGen: ChunkGenerator;
 
-    constructor() {
+    constructor(chunkGen: ChunkGenerator) {
         this.loadedChunks = [];
+        this.chunkGen = chunkGen;
     }
 
     isChunkLoaded(cx: number, cy: number): boolean {
         for (const chunk of this.loadedChunks) {
-            if (chunk.baseX === cx && chunk.baseY === cy) {
+            if (chunk._i === cx && chunk._j === cy) {
                 return true;
             }
         }
@@ -57,7 +63,7 @@ export class World {
 
     getLoadedChunk(cx: number, cy: number): Chunk | null {
         for (const chunk of this.loadedChunks) {
-            if (chunk.baseX === cx && chunk.baseY === cy) {
+            if (chunk._i === cx && chunk._j === cy) {
                 return chunk;
             }
         }
@@ -66,13 +72,13 @@ export class World {
 
     getLoadedChunkOrCreate(cx: number, cy: number): Chunk {
         for (const chunk of this.loadedChunks) {
-            if (chunk.baseX === cx && chunk.baseY === cy) {
+            if (chunk._i === cx && chunk._j === cy) {
                 return chunk;
             }
         }
-        const newChunk = new SampleChunk(Math.abs(cx) + Math.abs(cy));
-        newChunk.baseX = cx;
-        newChunk.baseY = cy;
+        const newChunk = this.chunkGen.generateChunk(cx, cy);
+        newChunk._i = cx;
+        newChunk._j = cy;
         this.loadedChunks.push(newChunk);
         console.log("new chunk created: (" + cx + ", " + cy + ")");
         return newChunk;
