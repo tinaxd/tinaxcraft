@@ -118,7 +118,7 @@ function getBlockCoordFromPixelCoord(px: number, py: number, mouseButton: number
         pixels[0] - 128,
         pixels[1] - 128,
         pixels[2] - 128,
-        pixels[3] - 128
+        Math.round(pixels[3] / 255 * 5)
     ];
     console.log(coord[0] + ' ' + coord[1] + ' ' + coord[2] + ' ' + coord[3]);
     handleBlockClick(coord[0], coord[1], coord[2], coord[3], mouseButton);
@@ -143,41 +143,38 @@ function neighborCoord(x: number, y: number, z: number, face: number): [number, 
     }
 }
 
-function handleBlockClick(x: number, y: number, z: number, face: number, clickButton: number) {
+function handleBlockClick(i: number, j: number, k: number, face: number, clickButton: number) {
     const isInRange = (x: number, y: number, z: number): boolean => {
         return (-64 <= x && x < 64) && (-64 <= y && y < 64) && (-64 <= z && z < 64);
     }
-    const getChunk = (): Chunk => {
+    const getChunk = (i: number, j: number): Chunk => {
         const [cx, cy] = chunkCoordOfPlayerPosition();
-        const [rcx, rcy] = chunkCoordOfPosition(x, y);
+        const [rcx, rcy] = chunkCoordOfBlockIndex(i, j);
         return currentWorld.getLoadedChunkOrCreate(cx+rcx, cy+rcy);
-    };
-    const chunkCoord = (x: number, y: number): [number, number] => {
-        return [mod(x, ChunkXPos), mod(y, ChunkYPos)];
     };
     switch (clickButton) {
     case 0: { // block destruction
-        if (isInRange(x, y, z)) {
+        if (isInRange(i, j, k)) {
             // TODO:
-            const chunk = getChunk();
-            const [cx, cy] = chunkCoord(x, y);
-            chunk.blocks[Chunk.index(cx, cy, z)] = AirBlock;
-            blockChanged = true;
+            const chunk = getChunk(i, j);
+            const [rix, riy] = relativeIndexInChunk(i, j);
+            chunk.blocks[Chunk.index(rix, riy, k)] = AirBlock;
+            worldChanged = true;
         }
         break;
     }
     case 2: { // block construction
-        const tmp = neighborCoord(x, y, z, face);
+        const tmp = neighborCoord(i, j, k, face);
         if (tmp == null) return;
         const [nx, ny, nz] = tmp;
         console.log(nx + " " + ny + " " + nz);
         if (isInRange(nx, ny, nz)) {
             //console.log("block plac")
             // TODO:
-            const chunk = getChunk();
-            const [cx, cy] = chunkCoord(nx, ny);
-            chunk.blocks[Chunk.index(cx, cy, nz)] = GrassBlock;
-            blockChanged = true;
+            const chunk = getChunk(nx, ny);
+            const [rix, riy] = relativeIndexInChunk(nx, ny);
+            chunk.blocks[Chunk.index(rix, riy, nz)] = GrassBlock;
+            worldChanged = true;
         }
         break;
     }
@@ -444,7 +441,8 @@ let cameraAngleX = 0;
 let cameraAngleY = 0;
 
 let currentWorld: World = new World();
-let blockChanged = true;
+let worldChanged = true;
+let chunkMoved = true;
 
 function nearbyChunkCoords(): Array<[number, number]> {
     const [cx, cy] = chunkCoordOfPlayerPosition();
@@ -461,7 +459,8 @@ function genNearbyChunkVertices(): number[] {
     const chunkCoords = nearbyChunkCoords();
     const vertices: number[] = [];
     for (const [cx, cy] of chunkCoords) {
-        const [rcx, rcy] = relativeChunkCoord(cx, cy);
+        const [px, py] = chunkCoordOfPlayerPosition();
+        const [rcx, rcy] = [cx-px, cy-py];
         const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
         vertices.push(...genChunkVertices(chunk, rcx*Chunk.SizeX, rcy*Chunk.SizeY, 0));
         //vertices.push(...genChunkVertices(chunk, 0, 0, 0));
@@ -484,7 +483,8 @@ function renderLoop(now: number) {
     renderDepthFb();
     renderCenterCursor();
     gl.flush();
-    blockChanged = false;
+    worldChanged = false;
+    chunkMoved = false;
     lastRender = now;
     requestAnimationFrame(renderLoop);
 }
@@ -558,14 +558,14 @@ function handleMovement(now: number) {
             console.log(lastChunkCoord + " " + currentChunkCoord);
             lastChunkCoord[0] = currentChunkCoord[0];
             lastChunkCoord[1] = currentChunkCoord[1];
-            blockChanged = true;
+            chunkMoved = true;
         }
         //console.log(position);
     }
 }
 
 function renderCanvas() {
-    if (blockChanged) {
+    if (worldChanged || chunkMoved) {
         bufferBlocks();
     }
 
@@ -624,10 +624,16 @@ function renderDepthFb() {
     const model = mat4.create();
     mat4.scale(model, model, vec3.fromValues(0.5, 0.5, 0.5));
 
+
     const view = mat4.create();
+    const normalPosition = vec3.create();
+    const [rpx, rpy] = relativePositionInChunk(position[0], position[1]);
+    normalPosition[0] = rpx;
+    normalPosition[1] = rpy;
+    normalPosition[2] = position[2];
     const lookTarget = vec3.create();
-    vec3.add(lookTarget, position, lookAtVec);
-    mat4.lookAt(view, position, lookTarget, zUpVec);
+    vec3.add(lookTarget, normalPosition, lookAtVec);
+    mat4.lookAt(view, normalPosition, lookTarget, zUpVec);
     
     const proj = mat4.create();
     mat4.perspective(proj, glMatrix.toRadian(70), 16/9, 0.1, 20);
@@ -639,6 +645,10 @@ function renderDepthFb() {
     renderDepthBlocks();
 }
 
+function chunkCoordOfBlockIndex(i: number, j: number): [number, number] {
+    return [Math.floor(i/Chunk.SizeX), Math.floor(j/Chunk.SizeY)];
+}
+
 function chunkCoordOfPosition(x: number, y: number): [number, number] {
     return [Math.floor(x/ChunkXPos), Math.floor(y/ChunkYPos)];
 }
@@ -648,19 +658,17 @@ function chunkCoordOfPlayerPosition(): [number, number] {
 }
 
 function relativePositionInChunk(x: number, y: number): [number, number] {
-    // return [
-    //     mod(x + ChunkXPos/2.0, ChunkXPos),
-    //     mod(y + ChunkYPos/2.0, ChunkYPos)
-    // ];
     return [
         mod(x, ChunkXPos),
         mod(y, ChunkYPos)
     ];
 }
 
-function relativeChunkCoord(cx: number, cy: number): [number, number] {
-    const [px, py] = chunkCoordOfPlayerPosition();
-    return [cx-px, cy-py];
+function relativeIndexInChunk(i: number, j: number): [number, number] {
+    return [
+        mod(i, Chunk.SizeX),
+        mod(j, Chunk.SizeY)
+    ];
 }
 
 function renderDepthBlocks() {
@@ -734,6 +742,7 @@ function renderDepthBlocks() {
     gl.vertexAttribPointer(pickerAttributes.position, 3, gl.BYTE, false, 7, 0);
     gl.vertexAttribPointer(pickerAttributes.blockCoord, 4, gl.BYTE, false, 7, 3);
     const vertices: number[] = [];
+    const [px, py] = chunkCoordOfPlayerPosition();
     for (const [cx, cy] of nearbyChunkCoords()) {
         const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
         for (let k=0; k<sizeZ; k++) {
@@ -741,7 +750,7 @@ function renderDepthBlocks() {
                 for (let i=0; i<sizeX; i++) {
                     const block = chunk.blocks[Chunk.index(i, j, k)];
                     if (block !== AirBlock) {
-                        const [rcx, rcy] = relativeChunkCoord(cx, cy);
+                        const [rcx, rcy] = [cx-px, cy-py];
                         appendDepthBlock(vertices, rcx*Chunk.SizeX+i, rcy*Chunk.SizeY+j, k);
                     }
                 }
