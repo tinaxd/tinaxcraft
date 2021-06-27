@@ -313,7 +313,8 @@ let uniformLocs = {
     modelUni: null,
     viewUni: null,
     projUni: null,
-    parallelRayUni: null
+    parallelRayUni: null,
+    playerPositionInChunk: null
 };
 
 let pickerUniforms = {
@@ -392,6 +393,7 @@ function initWebgl(done: () => void) {
     uniformLocs.viewUni = gl.getUniformLocation(program, 'view');
     uniformLocs.projUni = gl.getUniformLocation(program, 'proj');
     uniformLocs.parallelRayUni = gl.getUniformLocation(program, 'parallelRay');
+    uniformLocs.playerPositionInChunk = gl.getUniformLocation(program, 'playerPositionInChunk');
 
     // framebuffer for depth
     depthColorTexture = gl.createTexture();
@@ -599,7 +601,7 @@ function renderCanvas() {
     //console.log("position: " + position + " normalPosition: " + normalPosition);
     
     const proj = mat4.create();
-    mat4.perspective(proj, glMatrix.toRadian(70), 16/9, 0.1, 20);
+    mat4.perspective(proj, glMatrix.toRadian(70), 16/9, 0.1, 30);
 
     gl.uniformMatrix4fv(uniformLocs.modelUni, false, model);
     gl.uniformMatrix4fv(uniformLocs.viewUni, false, view);
@@ -607,6 +609,7 @@ function renderCanvas() {
     const parallelRay = vec3.fromValues(0.4, -0.2, -1);
     vec3.normalize(parallelRay, parallelRay);
     gl.uniform3fv(uniformLocs.parallelRayUni, parallelRay);
+    gl.uniform3fv(uniformLocs.playerPositionInChunk, normalPosition);
 
     const positionAttr = mainAttributes.position;
     const normalAttr = mainAttributes.normal;
