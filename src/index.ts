@@ -548,7 +548,7 @@ function handleMovement(now: number) {
             dp[2] -= zUpVec[2];
         }
         vec3.normalize(dp, dp);
-        vec3.scale(dp, dp, deltaMillis/1000);
+        vec3.scale(dp, dp, deltaMillis/1000 * 2);
         vec3.add(position, position, dp);
         //console.log(position);
 
