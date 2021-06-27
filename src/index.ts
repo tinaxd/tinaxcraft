@@ -675,6 +675,8 @@ function relativeIndexInChunk(i: number, j: number): [number, number] {
     ];
 }
 
+let lastDepthBlockVerticesNumber = 0;
+
 function renderDepthBlocks() {
     function appendDepthBlock(out: number[], x: number, y: number, z: number) {
         const i = x;
@@ -745,24 +747,27 @@ function renderDepthBlocks() {
     const sizeZ = Chunk.SizeZ;
     gl.vertexAttribPointer(pickerAttributes.position, 3, gl.BYTE, false, 7, 0);
     gl.vertexAttribPointer(pickerAttributes.blockCoord, 4, gl.BYTE, false, 7, 3);
-    const vertices: number[] = [];
-    const [px, py] = chunkCoordOfPlayerPosition();
-    for (const [cx, cy] of nearbyChunkCoords()) {
-        const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
-        for (let k=0; k<sizeZ; k++) {
-            for (let j=0; j<sizeY; j++) {
-                for (let i=0; i<sizeX; i++) {
-                    const block = chunk.blocks[Chunk.index(i, j, k)];
-                    if (block !== AirBlock) {
-                        const [rcx, rcy] = [cx-px, cy-py];
-                        appendDepthBlock(vertices, rcx*Chunk.SizeX+i, rcy*Chunk.SizeY+j, k);
+    if (worldChanged || chunkMoved) {
+        const vertices: number[] = [];
+        const [px, py] = chunkCoordOfPlayerPosition();
+        for (const [cx, cy] of nearbyChunkCoords()) {
+            const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
+            for (let k=0; k<sizeZ; k++) {
+                for (let j=0; j<sizeY; j++) {
+                    for (let i=0; i<sizeX; i++) {
+                        const block = chunk.blocks[Chunk.index(i, j, k)];
+                        if (block !== AirBlock) {
+                            const [rcx, rcy] = [cx-px, cy-py];
+                            appendDepthBlock(vertices, rcx*Chunk.SizeX+i, rcy*Chunk.SizeY+j, k);
+                        }
                     }
                 }
             }
         }
+        gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(vertices), gl.STATIC_DRAW);
+        lastDepthBlockVerticesNumber = vertices.length / 7;
     }
-    gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(vertices), gl.DYNAMIC_DRAW);
-    gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 7);
+    gl.drawArrays(gl.TRIANGLES, 0, lastDepthBlockVerticesNumber);
 }
 
 let cursorBufferFilled = false;
