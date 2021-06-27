@@ -451,8 +451,8 @@ let chunkMoved = true;
 function nearbyChunkCoords(): Array<[number, number]> {
     const [cx, cy] = chunkCoordOfPlayerPosition();
     const chunks = [];
-    for (let i=-1; i<=1; i++) {
-        for (let j=-1; j<=1; j++) {
+    for (let i=-2; i<=2; i++) {
+        for (let j=-2; j<=2; j++) {
             chunks.push([cx+i, cy+j]);
         }
     }
