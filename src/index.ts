@@ -157,19 +157,24 @@ function handleBlockClick(i: number, j: number, k: number, face: number, clickBu
     const isInRange = (x: number, y: number, z: number): boolean => {
         return (-64 <= x && x < 64) && (-64 <= y && y < 64) && (-64 <= z && z < 64);
     }
-    const getChunk = (i: number, j: number): Chunk => {
+    const getChunk = (i: number, j: number): [Chunk, number, number] => {
         const [cx, cy] = chunkCoordOfPlayerPosition();
         const [rcx, rcy] = chunkCoordOfBlockIndex(i, j);
-        return currentWorld.getLoadedChunkOrCreate(cx+rcx, cy+rcy);
+        return [
+            currentWorld.getLoadedChunkOrCreate(cx+rcx, cy+rcy),
+            rcx,
+            rcy
+        ];
     };
     switch (clickButton) {
     case 0: { // block destruction
         if (isInRange(i, j, k)) {
             // TODO:
-            const chunk = getChunk(i, j);
+            const [chunk, rcx, rcy] = getChunk(i, j);
             const [rix, riy] = relativeIndexInChunk(i, j);
             chunk.blocks[Chunk.index(rix, riy, k)] = AirBlock;
-            worldChanged = true;
+            console.log(bufferIndex(rcx, rcy) + " is dirty");
+            chunkDirty[bufferIndex(rcx, rcy)] = true;
         }
         break;
     }
@@ -181,11 +186,12 @@ function handleBlockClick(i: number, j: number, k: number, face: number, clickBu
         if (isInRange(nx, ny, nz)) {
             //console.log("block plac")
             // TODO:
-            const chunk = getChunk(nx, ny);
+            const [chunk, rcx, rcy] = getChunk(nx, ny);
             const [rix, riy] = relativeIndexInChunk(nx, ny);
             chunk.blocks[Chunk.index(rix, riy, nz)] = GrassBlock;
             playSFX('block-destroy');
-            worldChanged = true;
+            console.log(bufferIndex(rcx, rcy) + " is dirty");
+            chunkDirty[bufferIndex(rcx, rcy)] = true;
 
             // const exists = (i: number, j: number, k: number, dir: string) => {
             //     if (i < 0 || i >= Chunk.SizeX || j < 0 || j >= Chunk.SizeY || k < 0 || k >= Chunk.SizeZ) {
@@ -363,8 +369,10 @@ function buildShader(vertexShaderSource: string, fragmentShaderSource: string) {
     return program;
 }
 
-let vertexBuffer = null;
-let numberOfVertices = 0;
+let chunkDirty: boolean[] = null;
+
+let vertexBuffers: WebGLBuffer[] = null;
+let numberOfVertices: number[] = null;
 
 let mainAttributes = {
     position: null,
@@ -424,7 +432,17 @@ function bufferTextures(done: () => void) {
 let depthColorTexture;
 let depthBuffer;
 let depthFb;
-let depthVertexBuffer;
+let depthVertexBuffers: WebGLBuffer[];
+
+const sideChunksX = 2;
+const sideChunksY = 2;
+const nVisibleChunks = (2*sideChunksX+1)*(2*sideChunksY+1);
+
+function bufferIndex(rcx: number, rcy: number): number {
+    rcx += sideChunksX;
+    rcy += sideChunksY;
+    return rcx + rcy * (2*sideChunksX+1);
+}
 
 let cursorVertexBuffer;
 
@@ -434,14 +452,21 @@ function initWebgl(done: () => void) {
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
 
-    vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    const nChunks = nVisibleChunks;
+    chunkDirty = new Array<boolean>(nChunks);
+    for (let i=0; i<nChunks; i++) {
+        chunkDirty[i] = true;
+    }
+    vertexBuffers = new Array<WebGLBuffer>(nChunks);
+    for (let i=0; i<nChunks; i++) {
+        vertexBuffers[i] = gl.createBuffer();
+    }
+    numberOfVertices = new Array<number>(nChunks);
     
     program = buildShader(vertexShaderSource, fragmentShaderSource);
     pickerProgram = buildShader(pickerVertexShaderSource, pickerFragmentShaderSource);
 
-    // main shader uniforms
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    // main shader attributes and uniforms
     const positionAttr = gl.getAttribLocation(program, 'position');
     const normalAttr = gl.getAttribLocation(program, 'normal');
     const texCoordAttr = gl.getAttribLocation(program, 'textureCoord');
@@ -469,14 +494,19 @@ function initWebgl(done: () => void) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFb);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, depthColorTexture, 0);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer);
-    depthVertexBuffer = gl.createBuffer();
+    
+    depthVertexBuffers = new Array<WebGLBuffer>(nChunks);
+    for (let i=0; i<nChunks; i++) {
+        depthVertexBuffers[i] = gl.createBuffer();
+    }
+    lastDepthBlockVerticesNumbers = new Array<number>(nChunks);
 
-    // picker shader uniforms
-    gl.bindBuffer(gl.ARRAY_BUFFER, depthVertexBuffer);
+    // picker shader attributes and uniforms
     pickerAttributes.position = gl.getAttribLocation(pickerProgram, 'position');
-    gl.enableVertexAttribArray(pickerAttributes.position);
     pickerAttributes.blockCoord = gl.getAttribLocation(pickerProgram, 'blockCoord');
+    gl.enableVertexAttribArray(pickerAttributes.position);
     gl.enableVertexAttribArray(pickerAttributes.blockCoord);
+
     pickerUniforms.modelUni = gl.getUniformLocation(pickerProgram, 'model');
     pickerUniforms.viewUni = gl.getUniformLocation(pickerProgram, 'view');
     pickerUniforms.projUni = gl.getUniformLocation(pickerProgram, 'proj');
@@ -510,40 +540,38 @@ let cameraAngleX = 0;
 let cameraAngleY = 0;
 
 let currentWorld: World = new World(new PerlinChunkGenerator());
-let worldChanged = true;
 let chunkMoved = true;
 
 function nearbyChunkCoords(): Array<[number, number]> {
     const [cx, cy] = chunkCoordOfPlayerPosition();
     const chunks = [];
-    for (let i=-2; i<=2; i++) {
-        for (let j=-2; j<=2; j++) {
+    for (let i=-sideChunksX; i<=sideChunksX; i++) {
+        for (let j=-sideChunksY; j<=sideChunksY; j++) {
             chunks.push([cx+i, cy+j]);
         }
     }
     return chunks;
 }
 
-function genNearbyChunkVertices(facing: number): number[] {
-    const chunkCoords = nearbyChunkCoords();
-    const vertices: number[] = [];
-    for (const [cx, cy] of chunkCoords) {
-        const [px, py] = chunkCoordOfPlayerPosition();
-        const [rcx, rcy] = [cx-px, cy-py];
-        const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
-        vertices.push(...genChunkVertices(chunk, rcx*Chunk.SizeX, rcy*Chunk.SizeY, 0, facing));
-        //vertices.push(...genChunkVertices(chunk, 0, 0, 0));
-    }
-    return vertices;
+function updateBufferOfChunk(buffer: WebGLBuffer, cx: number, cy: number, rcx: number, rcy: number, facing: number): number {
+    const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
+    const vertices = genChunkVertices(chunk, rcx*Chunk.SizeX, rcy*Chunk.SizeY, 0, facing);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(vertices), gl.STATIC_DRAW);
+    return vertices.length / 8;
 }
 
 function bufferBlocks(facing: number) {
-    const cubeData = genNearbyChunkVertices(facing);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(cubeData), gl.STATIC_DRAW);
-
-    numberOfVertices = cubeData.length / 8;
+    for (let i=0; i<nVisibleChunks; i++) {
+        if (chunkDirty[i]) {
+            const rcx = (i % (2*sideChunksX+1)) - sideChunksX;
+            const rcy = Math.floor(i / (2*sideChunksX+1)) - sideChunksY;
+            const [pcx, pcy] = chunkCoordOfPlayerPosition();
+            const [cx, cy] = [pcx+rcx, pcy+rcy];
+            const nVertices = updateBufferOfChunk(vertexBuffers[i], cx, cy, rcx, rcy, facing);
+            numberOfVertices[i] = nVertices;
+        }
+    }
 }
 
 function renderLoop(now: number) {
@@ -551,10 +579,11 @@ function renderLoop(now: number) {
     renderCanvas();
     renderDepthFb();
     renderCenterCursor();
-    gl.flush();
-    worldChanged = false;
+    
+    for (let i=0; i<nVisibleChunks; i++) chunkDirty[i] = false;
     chunkMoved = false;
     lastRender = now;
+
     requestAnimationFrame(renderLoop);
 }
 
@@ -649,13 +678,17 @@ function handleMovement(now: number) {
 // }
 
 function renderCanvas() {
-    if (worldChanged || chunkMoved) {
-        bufferBlocks(XNEGF | XPOSF | YNEGF | YPOSF | ZNEGF | ZPOSF);
+    if (chunkMoved) {
+        // TODO: just swap chunk buffer
+        for (let i=0; i<nVisibleChunks; i++) {
+            chunkDirty[i] = true;
+        }
     }
+
+    bufferBlocks(XNEGF | XPOSF | YNEGF | YPOSF | ZNEGF | ZPOSF);
 
     gl.useProgram(program);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -692,17 +725,18 @@ function renderCanvas() {
     const positionAttr = mainAttributes.position;
     const normalAttr = mainAttributes.normal;
     const texCoordAttr = mainAttributes.texCoord;
-    gl.vertexAttribPointer(positionAttr, 3, gl.BYTE, false, 8, 0);
-    gl.vertexAttribPointer(normalAttr, 3, gl.BYTE, false, 8, 3);
-    gl.vertexAttribPointer(texCoordAttr, 2, gl.BYTE, false, 8, 6);
-    //console.log(numberOfVertices);
-    gl.drawArrays(gl.TRIANGLES, 0, numberOfVertices);
+    for (let i=0; i<nVisibleChunks; i++) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[i]);
+        gl.vertexAttribPointer(positionAttr, 3, gl.BYTE, false, 8, 0);
+        gl.vertexAttribPointer(normalAttr, 3, gl.BYTE, false, 8, 3);
+        gl.vertexAttribPointer(texCoordAttr, 2, gl.BYTE, false, 8, 6);
+        gl.drawArrays(gl.TRIANGLES, 0, numberOfVertices[i]);
+    }
 }
 
 function renderDepthFb() {
     gl.useProgram(pickerProgram);
     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFb);
-    gl.bindBuffer(gl.ARRAY_BUFFER, depthVertexBuffer);
 
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -757,7 +791,7 @@ function relativeIndexInChunk(i: number, j: number): [number, number] {
     ];
 }
 
-let lastDepthBlockVerticesNumber = 0;
+let lastDepthBlockVerticesNumbers: number[] = null;
 
 function renderDepthBlocks() {
     function appendDepthBlock(out: number[], x: number, y: number, z: number, faceToDraw: number) {
@@ -775,7 +809,7 @@ function renderDepthBlocks() {
         const f5 = 5;
         const buffer = new Array<number>(7*6*6);
         let idx = 0;
-        const add = (i, j, k, bx, by, bz, f) => {
+        const add = (i: number, j: number, k: number, bx: number, by: number, bz: number, f: number) => {
             buffer[idx++] = i;
             buffer[idx++] = j;
             buffer[idx++] = k;
@@ -843,13 +877,16 @@ function renderDepthBlocks() {
     const sizeX = Chunk.SizeX;
     const sizeY = Chunk.SizeY;
     const sizeZ = Chunk.SizeZ;
-    gl.vertexAttribPointer(pickerAttributes.position, 3, gl.BYTE, false, 7, 0);
-    gl.vertexAttribPointer(pickerAttributes.blockCoord, 4, gl.BYTE, false, 7, 3);
-    if (worldChanged || chunkMoved) {
-        const vertices: number[] = [];
-        const [px, py] = chunkCoordOfPlayerPosition();
-        const faceToDraw = XNEGF | XPOSF | YNEGF | YPOSF | ZNEGF | ZPOSF;
-        for (const [cx, cy] of nearbyChunkCoords()) {
+    
+    for (let i=0; i<nVisibleChunks; i++) {
+        if (chunkDirty[i]) {
+            console.log('depthbuf: chunk ' + i + ' is dirty... redrawing');
+            const vertices: number[] = [];
+            const [px, py] = chunkCoordOfPlayerPosition();
+            const faceToDraw = XNEGF | XPOSF | YNEGF | YPOSF | ZNEGF | ZPOSF;
+            const rcx = (i % (2*sideChunksX+1)) - sideChunksX;
+            const rcy = Math.floor(i/(2*sideChunksY+1)) - sideChunksY;
+            const [cx, cy] = [px+rcx, py+rcy];
             const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
             const exists = (i: number, j: number, k: number): boolean => {
                 if (i < 0 || i >= sizeX || j < 0 || j >= sizeY || k < 0 || k >= sizeZ) {
@@ -877,11 +914,19 @@ function renderDepthBlocks() {
                     }
                 }
             }
+            gl.bindBuffer(gl.ARRAY_BUFFER, depthVertexBuffers[i]);
+            gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(vertices), gl.STATIC_DRAW);
+            lastDepthBlockVerticesNumbers[i] = vertices.length / 7;
         }
-        gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(vertices), gl.STATIC_DRAW);
-        lastDepthBlockVerticesNumber = vertices.length / 7;
     }
-    gl.drawArrays(gl.TRIANGLES, 0, lastDepthBlockVerticesNumber);
+
+    for (let i=0; i<nVisibleChunks; i++) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, depthVertexBuffers[i]);
+        gl.vertexAttribPointer(pickerAttributes.position, 3, gl.BYTE, false, 7, 0);
+        gl.vertexAttribPointer(pickerAttributes.blockCoord, 4, gl.BYTE, false, 7, 3);
+        gl.drawArrays(gl.TRIANGLES, 0, lastDepthBlockVerticesNumbers[i]);
+    }
+    
 }
 
 let cursorBufferFilled = false;
