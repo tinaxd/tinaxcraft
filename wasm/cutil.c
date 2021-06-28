@@ -13,3 +13,10 @@ EMSCRIPTEN_KEEPALIVE
 int int_mod(int x, int m) {
     return ((x % m) + m) % m;
 }
+
+EMSCRIPTEN_KEEPALIVE
+double clamp(double x, double min, double max) {
+    if (x < min) x = min;
+    if (x > max) x = max;
+    return x;
+}

@@ -7,7 +7,7 @@ import cursorFragmentShaderSource from './cursor_fragment.glsl';
 import { glMatrix, mat3, mat4, vec3, vec4 } from 'gl-matrix';
 import { AirBlock, Chunk, GrassBlock, SampleChunk, World } from './world';
 import { defaultTexture, TextureInfo } from './texture';
-import { initUtil, intMod, mod } from './util';
+import { clamp, initUtil, intMod, mod } from './util';
 import { enableAudio, playSFX } from './sound';
 import { PerlinChunkGenerator } from './worldgen';
 
@@ -35,7 +35,9 @@ const MoveLeftBit = 1 << 2;
 const MoveRightBit = 1 << 3;
 const MoveUpBit = 1 << 4;
 const MoveDownBit = 1 << 5;
+const OpJump = 1;
 let currentMove = 0;
+let currentOp = 0;
 let position = vec3.fromValues(0, 0, 55);
 let lastChunkCoord: [number, number] = null;
 
@@ -56,7 +58,7 @@ canvas.addEventListener('keydown', (event) => {
         currentMove |= MoveRightBit;
         break;
     case ' ':
-        currentMove |= MoveUpBit;
+        currentOp |= OpJump;
         break;
     case 'Shift':
         currentMove |= MoveDownBit;
@@ -83,7 +85,7 @@ canvas.addEventListener('keyup', (event) => {
         currentMove &= ~MoveRightBit;
         break;
     case ' ':
-        currentMove &= ~MoveUpBit;
+        currentOp &= ~OpJump;
         break;
     case 'Shift':
         currentMove &= ~MoveDownBit;
@@ -593,6 +595,10 @@ function renderLoop(now: number) {
     requestAnimationFrame(renderLoop);
 }
 
+let velocity = vec3.create();
+let gravity = vec3.fromValues(0, 0, -9.8);
+let isOnLand = false;
+
 function handleMovement(now: number) {
     if (lastChunkCoord == null) {
         lastChunkCoord = chunkCoordOfPlayerPosition();
@@ -655,6 +661,15 @@ function handleMovement(now: number) {
         vec3.scale(dp, dp, deltaMillis/1000 * 2);
         vec3.add(position, position, dp);
         //console.log(position);
+
+        // apply gravity
+        vec3.scaleAndAdd(velocity, velocity, gravity, deltaMillis/1000);
+
+        // apply velocity
+        velocity[0] = clamp(velocity[0], -10, 10);
+        velocity[1] = clamp(velocity[1], -10, 10);
+        velocity[2] = clamp(velocity[2], -10, 10);
+        vec3.scaleAndAdd(position, position, velocity, deltaMillis/1000);
 
         const currentChunkCoord = chunkCoordOfPlayerPosition();
         if ((currentChunkCoord[0] != lastChunkCoord[0])
