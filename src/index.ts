@@ -583,7 +583,7 @@ function bufferBlocks(facing: number) {
 function renderLoop(now: number) {
     handleMovement(now);
     renderCanvas();
-    //renderDepthFb();
+    renderDepthFb();
     renderCenterCursor();
     
     for (let i=0; i<nVisibleChunks; i++) chunkDirty[i] = false;
@@ -687,7 +687,6 @@ function renderCanvas() {
                 vertexBuffers = newVertexBuffers;
                 numberOfVertices = newNumberOfVertices;
             };
-            console.log('dx: ' + chunkMovedInfo.dx + ' dy: ' + chunkMovedInfo.dy);
             for (let n=0; n<nVisibleChunks; n++) {
                 const x = (n % (2*sideChunksX+1));
                 const y = Math.floor(n/(2*sideChunksX+1));
@@ -903,6 +902,47 @@ function renderDepthBlocks() {
     const sizeX = Chunk.SizeX;
     const sizeY = Chunk.SizeY;
     const sizeZ = Chunk.SizeZ;
+
+    if (chunkMovedInfo.moved) {
+        if (chunkMovedInfo.dx === 0 && chunkMovedInfo.dy === 0) {
+            for (let i=0; i<nVisibleChunks; i++) {
+                chunkDirty[i] = true;
+            }
+        } else {
+            const newDepthVertexBuffers = new Array<WebGLBuffer>(depthVertexBuffers.length);
+            const newLastDepthBlockVerticesNumbers = new Array<number>(lastDepthBlockVerticesNumbers.length);
+            const moveBuffer = (i: number, j: number) => {
+                newDepthVertexBuffers[j] = depthVertexBuffers[i];
+                newLastDepthBlockVerticesNumbers[j] = lastDepthBlockVerticesNumbers[i];
+            };
+            const applyMove = () => {
+                depthVertexBuffers = newDepthVertexBuffers;
+                lastDepthBlockVerticesNumbers = newLastDepthBlockVerticesNumbers;
+            };
+            for (let n=0; n<nVisibleChunks; n++) {
+                const x = (n % (2*sideChunksX+1));
+                const y = Math.floor(n/(2*sideChunksX+1));
+                let newX = x - chunkMovedInfo.dx;
+                let newY = y - chunkMovedInfo.dy;
+                let newIsDirty = false;
+                if (newX < 0 || newX >= (2*sideChunksX+1)) {
+                    newX = intMod(newX, 2*sideChunksX+1);
+                    newIsDirty = true;
+                }
+                if (newY < 0 || newY >= (2*sideChunksY+1)) {
+                    newY = intMod(newY, 2*sideChunksY+1);
+                    newIsDirty = true;
+                }
+                const i = x + y * (2*sideChunksX+1);
+                const j = newX + newY * (2*sideChunksX+1);
+                moveBuffer(i, j);
+                if (newIsDirty) {
+                    chunkDirty[j] = true;
+                }
+            }
+            applyMove();
+        }
+    }
     
     for (let i=0; i<nVisibleChunks; i++) {
         if (chunkDirty[i]) {
