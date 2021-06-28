@@ -7,7 +7,7 @@ import cursorFragmentShaderSource from './cursor_fragment.glsl';
 import { glMatrix, mat3, mat4, vec3, vec4 } from 'gl-matrix';
 import { AirBlock, Chunk, GrassBlock, SampleChunk, World } from './world';
 import { defaultTexture, TextureInfo } from './texture';
-import { mod } from './util';
+import { initUtil, mod } from './util';
 import { enableAudio, playSFX } from './sound';
 import { PerlinChunkGenerator } from './worldgen';
 
@@ -15,6 +15,8 @@ const canvas = document.querySelector('#webglCanvas') as HTMLCanvasElement;
 let gl: WebGLRenderingContext = null;
 
 window.addEventListener('load', async () => {
+    await initUtil();
+
     canvas.width = window.innerWidth * 0.8;
     canvas.height = window.innerHeight * 0.8;
 
