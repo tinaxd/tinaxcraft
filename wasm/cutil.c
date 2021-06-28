@@ -8,3 +8,8 @@ double mod(double x, double m) {
     if (result < 0) result += m;
     return result;
 }
+
+EMSCRIPTEN_KEEPALIVE
+int int_mod(int x, int m) {
+    return ((x % m) + m) % m;
+}

@@ -7,7 +7,7 @@ import cursorFragmentShaderSource from './cursor_fragment.glsl';
 import { glMatrix, mat3, mat4, vec3, vec4 } from 'gl-matrix';
 import { AirBlock, Chunk, GrassBlock, SampleChunk, World } from './world';
 import { defaultTexture, TextureInfo } from './texture';
-import { initUtil, mod } from './util';
+import { initUtil, intMod, mod } from './util';
 import { enableAudio, playSFX } from './sound';
 import { PerlinChunkGenerator } from './worldgen';
 
@@ -541,7 +541,11 @@ let cameraAngleX = 0;
 let cameraAngleY = 0;
 
 let currentWorld: World = new World(new PerlinChunkGenerator());
-let chunkMoved = true;
+let chunkMovedInfo = {
+    moved: true,
+    dx: 0,
+    dy: 0
+};
 
 function nearbyChunkCoords(): Array<[number, number]> {
     const [cx, cy] = chunkCoordOfPlayerPosition();
@@ -567,6 +571,7 @@ function bufferBlocks(facing: number) {
         if (chunkDirty[i]) {
             const rcx = (i % (2*sideChunksX+1)) - sideChunksX;
             const rcy = Math.floor(i / (2*sideChunksX+1)) - sideChunksY;
+            //console.log('redrawing: rcx ' + rcx + ' rcy ' + rcy);
             const [pcx, pcy] = chunkCoordOfPlayerPosition();
             const [cx, cy] = [pcx+rcx, pcy+rcy];
             const nVertices = updateBufferOfChunk(vertexBuffers[i], cx, cy, facing);
@@ -578,11 +583,11 @@ function bufferBlocks(facing: number) {
 function renderLoop(now: number) {
     handleMovement(now);
     renderCanvas();
-    renderDepthFb();
+    //renderDepthFb();
     renderCenterCursor();
     
     for (let i=0; i<nVisibleChunks; i++) chunkDirty[i] = false;
-    chunkMoved = false;
+    chunkMovedInfo.moved = false;
     lastRender = now;
 
     requestAnimationFrame(renderLoop);
@@ -655,34 +660,56 @@ function handleMovement(now: number) {
         if ((currentChunkCoord[0] != lastChunkCoord[0])
             || (currentChunkCoord[1] != lastChunkCoord[1])) {
             console.log(lastChunkCoord + " " + currentChunkCoord);
+            chunkMovedInfo.moved = true;
+            chunkMovedInfo.dx = currentChunkCoord[0] - lastChunkCoord[0];
+            chunkMovedInfo.dy = currentChunkCoord[1] - lastChunkCoord[1];
             lastChunkCoord[0] = currentChunkCoord[0];
             lastChunkCoord[1] = currentChunkCoord[1];
-            chunkMoved = true;
         }
         //console.log(position);
     }
 }
 
-// let lastFacesToDraw = 0;
-
-// function calculateFacesToDraw(): number {
-//     let faces = XNEGF | XPOSF | YNEGF | YPOSF;
-//     // if (lookAtVec[0] > 0) faces |= XNEGF;
-//     // else if (lookAtVec[0] < 0) faces |= XPOSF;
-
-//     // if (lookAtVec[1] > 0) faces |= YNEGF;
-//     // else if (lookAtVec[1] < 0) faces |= YPOSF;
-
-//     if (lookAtVec[2] > 0) faces |= ZNEGF;
-//     else if (lookAtVec[2] < 0) faces |= ZPOSF;
-//     return faces;
-// }
-
 function renderCanvas() {
-    if (chunkMoved) {
-        // TODO: just swap chunk buffer
-        for (let i=0; i<nVisibleChunks; i++) {
-            chunkDirty[i] = true;
+    if (chunkMovedInfo.moved) {
+        if (chunkMovedInfo.dx === 0 && chunkMovedInfo.dy === 0) {
+            for (let i=0; i<nVisibleChunks; i++) {
+                chunkDirty[i] = true;
+            }
+        } else {
+            const newVertexBuffers = new Array<WebGLBuffer>(vertexBuffers.length);
+            const newNumberOfVertices = new Array<number>(numberOfVertices.length);
+            const moveBuffer = (i: number, j: number) => {
+                newVertexBuffers[j] = vertexBuffers[i];
+                newNumberOfVertices[j] = numberOfVertices[i];
+            };
+            const applyMove = () => {
+                vertexBuffers = newVertexBuffers;
+                numberOfVertices = newNumberOfVertices;
+            };
+            console.log('dx: ' + chunkMovedInfo.dx + ' dy: ' + chunkMovedInfo.dy);
+            for (let n=0; n<nVisibleChunks; n++) {
+                const x = (n % (2*sideChunksX+1));
+                const y = Math.floor(n/(2*sideChunksX+1));
+                let newX = x - chunkMovedInfo.dx;
+                let newY = y - chunkMovedInfo.dy;
+                let newIsDirty = false;
+                if (newX < 0 || newX >= (2*sideChunksX+1)) {
+                    newX = intMod(newX, 2*sideChunksX+1);
+                    newIsDirty = true;
+                }
+                if (newY < 0 || newY >= (2*sideChunksY+1)) {
+                    newY = intMod(newY, 2*sideChunksY+1);
+                    newIsDirty = true;
+                }
+                const i = x + y * (2*sideChunksX+1);
+                const j = newX + newY * (2*sideChunksX+1);
+                moveBuffer(i, j);
+                if (newIsDirty) {
+                    chunkDirty[j] = true;
+                }
+            }
+            applyMove();
         }
     }
 
