@@ -24,7 +24,8 @@ void main() {
 
 	float d = length(playerPositionInChunk - gl_Position.xyz);
 	float fogpos = d * linearFogDepth;
-	fogFactor = clamp((fogmax - fogpos) / (fogmax - fogmin), 0.0, 1.0);
+	//fogFactor = clamp((fogmax - fogpos) / (fogmax - fogmin), 0.0, 1.0);
+	fogFactor = 1.0;
 	//vColor = abs(dot(newNormal, parallelRay)) * vec4(1.0, 1.0, 1.0, 1.0);
 	//vColor = vec4(abs(parallelRay), 1.0);
 }

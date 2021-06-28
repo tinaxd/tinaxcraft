@@ -36,7 +36,7 @@ const MoveRightBit = 1 << 3;
 const MoveUpBit = 1 << 4;
 const MoveDownBit = 1 << 5;
 let currentMove = 0;
-let position = vec3.fromValues(0, 0, 10);
+let position = vec3.fromValues(0, 0, 55);
 let lastChunkCoord: [number, number] = null;
 
 canvas.addEventListener('keydown', (event) => {
@@ -157,7 +157,7 @@ function neighborCoord(x: number, y: number, z: number, face: number): [number, 
 
 function handleBlockClick(i: number, j: number, k: number, face: number, clickButton: number) {
     const isInRange = (x: number, y: number, z: number): boolean => {
-        return (-64 <= x && x < 64) && (-64 <= y && y < 64) && (-64 <= z && z < 64);
+        return (-64 <= x && x < 64) && (-64 <= y && y < 64) && (-128 <= z && z < 128);
     }
     const getChunk = (i: number, j: number): [Chunk, number, number] => {
         const [cx, cy] = chunkCoordOfPlayerPosition();

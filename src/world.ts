@@ -14,7 +14,7 @@ export const GrassBlock = new Block(1);
 export class Chunk {
     static readonly SizeX = 16;
     static readonly SizeY = 16;
-    static readonly SizeZ = 16;
+    static readonly SizeZ = 256;
 
     blocks: Array<Block>;
 

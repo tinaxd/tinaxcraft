@@ -22,7 +22,7 @@ export class PerlinChunkGenerator implements ChunkGenerator {
             for (let i=0; i<Chunk.SizeX; i++) {
                 const noise = this.noise.perlin2(cx + i / Chunk.SizeX,
                                                  cy + j / Chunk.SizeY);
-                heights[Chunk.SizeX*j+i] = Math.round((noise + 1.0) / 2.0 * Chunk.SizeZ);
+                heights[Chunk.SizeX*j+i] = 64 + Math.round((noise + 1.0) / 2.0 * 16);
             }
         }
         return heights;
