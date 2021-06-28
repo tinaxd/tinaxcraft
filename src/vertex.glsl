@@ -18,7 +18,7 @@ const float fogmin = 3.0;
 
 void main() {
 	gl_Position = proj * view * model * vec4(position, 1.0);
-	vec3 newNormal = normalize((model * vec4(normal, 1.0)).xyz);
+	vec3 newNormal = normal;
 	Brightness = clamp(-dot(newNormal, parallelRay), 0.3, 1.0);
 	TextureCoord = textureCoord;
 

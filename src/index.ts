@@ -223,16 +223,13 @@ canvas.addEventListener('mousemove', (event) => {
     mouseMoveY += event.movementY;
 }, false);
 
-function genBlockVertices(i: number, j: number, k: number, tex: TextureInfo, basePosition: [number, number, number], faceToDraw: number) {
+function genBlockVertices(i: number, j: number, k: number, tex: TextureInfo, faceToDraw: number) {
     const [znegx, znegy] = tex.zneg;
     const [zposx, zposy] = tex.zpos;
     const [xnegx, xnegy] = tex.xneg;
     const [xposx, xposy] = tex.xpos;
     const [ynegx, ynegy] = tex.yneg;
     const [yposx, yposy] = tex.ypos;
-    i += basePosition[0];
-    j += basePosition[1];
-    k += basePosition[2];
     const buffer = new Array<number>(8*6*6);
     let idx = 0;
 
@@ -304,7 +301,7 @@ function genBlockVertices(i: number, j: number, k: number, tex: TextureInfo, bas
     return buffer.slice(0, idx);
 }
 
-function genChunkVertices(chunk: Chunk, basePositionX: number, basePositionY: number, basePositionZ: number, faceToDraw: number): number[] {
+function genChunkVertices(chunk: Chunk, faceToDraw: number): number[] {
     const sizeX = Chunk.SizeX;
     const sizeY = Chunk.SizeY;
     const sizeZ = Chunk.SizeZ;
@@ -331,7 +328,7 @@ function genChunkVertices(chunk: Chunk, basePositionX: number, basePositionY: nu
                     if (((ftd & ZPOSF) != 0) && exists(i, j, k+1)) ftd &= ~ZPOSF;
                     if (ftd === 0) continue;
                     const texture = defaultTexture.get(block);
-                    vertices.push(...genBlockVertices(i, j, k, texture, [basePositionX, basePositionY, basePositionZ], ftd));
+                    vertices.push(...genBlockVertices(i, j, k, texture, ftd));
                 }
             }
         }
@@ -393,7 +390,8 @@ let uniformLocs = {
 let pickerUniforms = {
     modelUni: null,
     viewUni: null,
-    projUni: null
+    projUni: null,
+    blockCoordOffset: null
 };
 
 let pickerAttributes = {
@@ -512,6 +510,7 @@ function initWebgl(done: () => void) {
     pickerUniforms.modelUni = gl.getUniformLocation(pickerProgram, 'model');
     pickerUniforms.viewUni = gl.getUniformLocation(pickerProgram, 'view');
     pickerUniforms.projUni = gl.getUniformLocation(pickerProgram, 'proj');
+    pickerUniforms.blockCoordOffset = gl.getUniformLocation(pickerProgram, 'blockCoordOffset');
 
     // cursor rendering
     cursorProgram = buildShader(cursorVertexShaderSource, cursorFragmentShaderSource);
@@ -555,9 +554,9 @@ function nearbyChunkCoords(): Array<[number, number]> {
     return chunks;
 }
 
-function updateBufferOfChunk(buffer: WebGLBuffer, cx: number, cy: number, rcx: number, rcy: number, facing: number): number {
+function updateBufferOfChunk(buffer: WebGLBuffer, cx: number, cy: number, facing: number): number {
     const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
-    const vertices = genChunkVertices(chunk, rcx*Chunk.SizeX, rcy*Chunk.SizeY, 0, facing);
+    const vertices = genChunkVertices(chunk, facing);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(vertices), gl.STATIC_DRAW);
     return vertices.length / 8;
@@ -570,7 +569,7 @@ function bufferBlocks(facing: number) {
             const rcy = Math.floor(i / (2*sideChunksX+1)) - sideChunksY;
             const [pcx, pcy] = chunkCoordOfPlayerPosition();
             const [cx, cy] = [pcx+rcx, pcy+rcy];
-            const nVertices = updateBufferOfChunk(vertexBuffers[i], cx, cy, rcx, rcy, facing);
+            const nVertices = updateBufferOfChunk(vertexBuffers[i], cx, cy, facing);
             numberOfVertices[i] = nVertices;
         }
     }
@@ -695,12 +694,6 @@ function renderCanvas() {
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    const model = mat4.create();
-    //const xInC = mod(position[0], Chunk.SizeX);
-    //const yInC = mod(position[1], Chunk.SizeY);
-    //mat4.translate(model, model, vec3.fromValues(-xInC, -yInC, 0));
-    mat4.scale(model, model, vec3.fromValues(BlockXScale, BlockYScale, BlockZScale));
-
     const view = mat4.create();
     const normalPosition = vec3.create();
     const [rpx, rpy] = relativePositionInChunk(position[0], position[1]);
@@ -716,7 +709,6 @@ function renderCanvas() {
     const proj = mat4.create();
     mat4.perspective(proj, glMatrix.toRadian(70), 16/9, 0.1, 30);
 
-    gl.uniformMatrix4fv(uniformLocs.modelUni, false, model);
     gl.uniformMatrix4fv(uniformLocs.viewUni, false, view);
     gl.uniformMatrix4fv(uniformLocs.projUni, false, proj);
     const parallelRay = vec3.fromValues(0.4, -0.2, -1);
@@ -728,7 +720,17 @@ function renderCanvas() {
     const normalAttr = mainAttributes.normal;
     const texCoordAttr = mainAttributes.texCoord;
     for (let i=0; i<nVisibleChunks; i++) {
+        const rcx = (i % (2*sideChunksX+1)) - sideChunksX;
+        const rcy = Math.floor(i/(2*sideChunksY+1)) - sideChunksY;
+
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[i]);
+
+        const model = mat4.create();
+        mat4.translate(model, model, vec3.fromValues(ChunkXPos*rcx, ChunkYPos*rcy, 0));
+        mat4.scale(model, model, vec3.fromValues(BlockXScale, BlockYScale, BlockZScale));
+        
+        gl.uniformMatrix4fv(uniformLocs.modelUni, false, model);
+
         gl.vertexAttribPointer(positionAttr, 3, gl.BYTE, false, 8, 0);
         gl.vertexAttribPointer(normalAttr, 3, gl.BYTE, false, 8, 3);
         gl.vertexAttribPointer(texCoordAttr, 2, gl.BYTE, false, 8, 6);
@@ -743,10 +745,6 @@ function renderDepthFb() {
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    const model = mat4.create();
-    mat4.scale(model, model, vec3.fromValues(0.5, 0.5, 0.5));
-
-
     const view = mat4.create();
     const normalPosition = vec3.create();
     const [rpx, rpy] = relativePositionInChunk(position[0], position[1]);
@@ -760,7 +758,6 @@ function renderDepthFb() {
     const proj = mat4.create();
     mat4.perspective(proj, glMatrix.toRadian(70), 16/9, 0.1, 20);
 
-    gl.uniformMatrix4fv(pickerUniforms.modelUni, false, model);
     gl.uniformMatrix4fv(pickerUniforms.viewUni, false, view);
     gl.uniformMatrix4fv(pickerUniforms.projUni, false, proj);
 
@@ -911,7 +908,7 @@ function renderDepthBlocks() {
                             if (((ftd & ZNEGF) != 0) && exists(i, j, k-1)) ftd &= ~ZNEGF;
                             if (((ftd & ZPOSF) != 0) && exists(i, j, k+1)) ftd &= ~ZPOSF;
                             if (ftd === 0) continue;
-                            appendDepthBlock(vertices, rcx*Chunk.SizeX+i, rcy*Chunk.SizeY+j, k, ftd);
+                            appendDepthBlock(vertices, i, j, k, ftd);
                         }
                     }
                 }
@@ -924,6 +921,17 @@ function renderDepthBlocks() {
 
     for (let i=0; i<nVisibleChunks; i++) {
         gl.bindBuffer(gl.ARRAY_BUFFER, depthVertexBuffers[i]);
+
+        const rcx = (i % (2*sideChunksX+1)) - sideChunksX;
+        const rcy = Math.floor(i/(2*sideChunksY+1)) - sideChunksY;
+        const model = mat4.create();
+        mat4.translate(model, model, vec3.fromValues(rcx*ChunkXPos, rcy*ChunkYPos, 0));
+        mat4.scale(model, model, vec3.fromValues(0.5, 0.5, 0.5));
+        gl.uniformMatrix4fv(pickerUniforms.modelUni, false, model);
+
+        const offset = vec4.fromValues(rcx*Chunk.SizeX, rcy*Chunk.SizeY, 0, 0);
+        gl.uniform4fv(pickerUniforms.blockCoordOffset, offset);
+
         gl.vertexAttribPointer(pickerAttributes.position, 3, gl.BYTE, false, 7, 0);
         gl.vertexAttribPointer(pickerAttributes.blockCoord, 4, gl.BYTE, false, 7, 3);
         gl.drawArrays(gl.TRIANGLES, 0, lastDepthBlockVerticesNumbers[i]);
