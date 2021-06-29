@@ -534,6 +534,7 @@ const BlockYScale = 0.5;
 const BlockZScale = 0.5;
 const ChunkXPos = 255 / Chunk.SizeX * BlockXScale;
 const ChunkYPos = 255 / Chunk.SizeY * BlockYScale;
+const ChunkZPos = 255 / Chunk.SizeZ * BlockZScale;
 
 let lookAtVec = vec3.fromValues(1, 1, 0);
 let lastRender: number;
@@ -598,6 +599,70 @@ function renderLoop(now: number) {
 let velocity = vec3.create();
 let gravity = vec3.fromValues(0, 0, -9.8);
 let isOnLand = false;
+const jumpMoveSpeed = 0.7;
+
+function checkIsOnLand(): boolean {
+    const X = position[0];
+    const Y = position[1];
+    const Z = position[2];
+    const [cx, cy] = chunkCoordOfPosition(X, Y);
+    const chunk = currentWorld.getLoadedChunk(cx, cy);
+    if (chunk === null) return;
+    let [rpx, rpy] = relativePositionInChunk(X, Y);
+    rpx = Math.floor(rpx * 2);
+    rpy = Math.floor(rpy * 2);
+    const block = chunk.blocks[Chunk.index(rpx, rpy, Math.floor(Z/ChunkZPos)-1)];
+    isOnLand = block !== AirBlock;
+    return isOnLand;
+}
+
+function wallCheck() {
+    const X = position[0];
+    const Y = position[1];
+    const Z = position[2];
+    const [cx, cy] = chunkCoordOfPosition(X, Y);
+    const chunk = currentWorld.getLoadedChunk(cx, cy);
+    if (chunk === null) return;
+    let [rpx, rpy] = relativePositionInChunk(X, Y);
+    rpx *= 2;
+    rpy *= 2;
+    const rpxf = Math.floor(rpx);
+    const rpyf = Math.floor(rpy);
+    const rpz = Z/ChunkZPos;
+    const rpzf = Math.floor(rpz);
+    const check = (rpx: number, rpy: number): boolean => {
+        let ch = chunk;
+        let [cx2, cy2] = [cx, cy];
+        if (rpx < 0) cx2--;
+        else if (rpx >= Chunk.SizeX) cx2++;
+        if (rpy < 0) cy2--;
+        else if (rpy >= Chunk.SizeY) cy2++;
+        ch = currentWorld.getLoadedChunk(cx2, cy2);
+        const block = ch.blocks[Chunk.index(rpx, rpy, rpzf)];
+        if (block !== null && block !== AirBlock) return true;
+        const block2 = ch.blocks[Chunk.index(rpx, rpy, rpzf+1)];
+        return block2 !== null && block2 !== AirBlock;
+    }
+
+    //console.log('velocity[0]: ' + velocity[0] + ' velocity[1]: ' + velocity)
+    if (velocity[0] > 0 && ((rpxf+1-rpx) < 0.2) && check(rpxf+1, rpyf)) {
+        //console.log('xpos block');
+        velocity[0] = 0;
+    }
+    if (velocity[0] < 0 && ((rpx-rpxf) < 0.2) && check(rpxf-1, rpyf)) {
+        console.log(rpx-rpxf);
+        //console.log('xneg block');
+        velocity[0] = 0;
+    }
+    if (velocity[1] > 0 && ((rpyf+1-rpy) < 0.2) && check(rpxf, rpyf+1)) {
+        //console.log('ypos block');
+        velocity[1] = 0;
+    }
+    if (velocity[1] < 0 && ((rpy-rpyf) < 0.2) && check(rpxf, rpyf-1)) {
+        //console.log('yneg block');
+        velocity[1] = 0;
+    }
+}
 
 function handleMovement(now: number) {
     if (lastChunkCoord == null) {
@@ -629,6 +694,8 @@ function handleMovement(now: number) {
 
         mouseMoveX = 0;
         mouseMoveY = 0;
+        
+        checkIsOnLand();
 
         // player position move
         const move = currentMove;
@@ -651,19 +718,29 @@ function handleMovement(now: number) {
             dp[0] += lookAtVec[1];
             dp[1] -= lookAtVec[0];
         }
-        if (move & MoveUpBit) {
+        if ((move & MoveUpBit) && isOnLand) {
             dp[2] += zUpVec[2];
         }
-        if (move & MoveDownBit) {
+        if ((move & MoveDownBit) && isOnLand) {
             dp[2] -= zUpVec[2];
         }
         vec3.normalize(dp, dp);
-        vec3.scale(dp, dp, deltaMillis/1000 * 2);
-        vec3.add(position, position, dp);
-        //console.log(position);
+        const speed = isOnLand ? 1.0 : jumpMoveSpeed;
+        vec3.scale(dp, dp, 2*speed);
+        if (isOnLand) {
+            velocity = dp;
+        } else {
+            // TODO: velocity = mix(velocity, dp, ???)
+        }
 
-        // apply gravity
-        vec3.scaleAndAdd(velocity, velocity, gravity, deltaMillis/1000);
+        if (isOnLand) {
+            velocity[2] = 0;
+        } else {
+            // apply gravity
+            vec3.scaleAndAdd(velocity, velocity, gravity, deltaMillis/1000);
+        }
+
+        wallCheck();
 
         // apply velocity
         velocity[0] = clamp(velocity[0], -10, 10);
@@ -740,7 +817,7 @@ function renderCanvas() {
     const [rpx, rpy] = relativePositionInChunk(position[0], position[1]);
     normalPosition[0] = rpx;
     normalPosition[1] = rpy;
-    normalPosition[2] = position[2];
+    normalPosition[2] = position[2] + 0.4/ChunkZPos;
     const lookTarget = vec3.create();
     vec3.add(lookTarget, normalPosition, lookAtVec);
     mat4.lookAt(view, normalPosition, lookTarget, zUpVec);
