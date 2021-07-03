@@ -1,12 +1,13 @@
-export let mod: Function;
-export let intMod: Function;
-export let clamp: Function;
+export function mod(x: number, m: number): number {
+    return ((x % m) + m) % m;
+}
 
-export async function initUtil() {
-    const res = await fetch('wasm/cutil.wasm');
-    const bytes = await res.arrayBuffer();
-    const results = await WebAssembly.instantiate(bytes);
-    mod = results.instance.exports.mod as Function;
-    intMod = results.instance.exports.int_mod as Function;
-    clamp = results.instance.exports.clamp as Function;
+export function intMod(x: number, m: number): number {
+    return mod(x, m);
+}
+
+export function clamp(x: number, min: number, max: number): number {
+    if (x < min) x = min;
+    if (x > max) x = max;
+    return x;
 }
