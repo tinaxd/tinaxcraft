@@ -868,7 +868,7 @@ function renderDepthFb() {
     const [rpx, rpy] = relativePositionInChunk(position[0], position[1]);
     normalPosition[0] = rpx;
     normalPosition[1] = rpy;
-    normalPosition[2] = position[2];
+    normalPosition[2] = position[2] + 0.4/ChunkZPos;
     const lookTarget = vec3.create();
     vec3.add(lookTarget, normalPosition, lookAtVec);
     mat4.lookAt(view, normalPosition, lookTarget, zUpVec);
