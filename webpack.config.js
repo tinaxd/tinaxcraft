@@ -21,8 +21,7 @@ module.exports = {
     plugins: [
         new CopyPlugin({
             patterns: [
-                {from: 'public', to: ''},
-                {from: 'wasm/*.wasm', to: ''}
+                {from: 'public', to: ''}
             ]
         })
     ],
