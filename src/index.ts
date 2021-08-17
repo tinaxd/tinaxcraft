@@ -650,14 +650,14 @@ function wallCheck() {
         return block2 !== null && block2 !== AirBlock;
     }
 
-    console.log(rpx + " " + rpy);
+    //console.log(rpx + " " + rpy);
     //console.log('velocity[0]: ' + velocity[0] + ' velocity[1]: ' + velocity)
     if (velocity[0] > 0 && ((rpxf+1-rpx) < 0.2) && check(rpxf+1, rpyf)) {
         //console.log('xpos block');
         velocity[0] = 0;
     }
     if (velocity[0] < 0 && ((rpx-rpxf) < 0.2) && check(rpxf-1, rpyf)) {
-        console.log(rpx-rpxf);
+        //console.log(rpx-rpxf);
         //console.log('xneg block');
         velocity[0] = 0;
     }
