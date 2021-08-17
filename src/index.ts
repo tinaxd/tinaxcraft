@@ -7,7 +7,7 @@ import cursorFragmentShaderSource from './cursor_fragment.glsl';
 import { glMatrix, mat3, mat4, vec3, vec4 } from 'gl-matrix';
 import { AirBlock, Chunk, GrassBlock, SampleChunk, World } from './world';
 import { defaultTexture, TextureInfo } from './texture';
-import { clamp, intMod, mod } from './util';
+import { clamp, intMod, mod, mix } from './util';
 import { enableAudio, playSFX } from './sound';
 import { PerlinChunkGenerator } from './worldgen';
 
@@ -707,7 +707,7 @@ function handleMovement(now: number) {
         // player position move
         const move = currentMove;
         const op = currentOp;
-        const JumpPower = 4;
+        const JumpPower = 3;
         vec3.normalize(lookAtVec, lookAtVec);
         const dp = vec3.create();
         //console.log(lookAtVec);
@@ -739,7 +739,12 @@ function handleMovement(now: number) {
         if (isOnLand) {
             velocity = dp;
         } else {
+            // jump 中は WASD の制御を効きにくくする
             // TODO: velocity = mix(velocity, dp, ???)
+            const mixRate = 0.2;
+            velocity[0] = mix(velocity[0], dp[0], mixRate);
+            velocity[1] = mix(velocity[1], dp[1], mixRate);
+            //velocity[2] = mix(velocity[2], dp[2], mixRate);
         }
 
         if (isOnLand) {

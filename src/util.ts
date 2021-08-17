@@ -11,3 +11,7 @@ export function clamp(x: number, min: number, max: number): number {
     if (x > max) x = max;
     return x;
 }
+
+export function mix(x: number, y: number, r: number): number {
+    return x + (y-x) * r;
+}
