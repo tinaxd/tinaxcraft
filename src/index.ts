@@ -637,13 +637,20 @@ function wallCheck() {
         else if (rpx >= Chunk.SizeX) cx2++;
         if (rpy < 0) cy2--;
         else if (rpy >= Chunk.SizeY) cy2++;
-        ch = currentWorld.getLoadedChunk(cx2, cy2);
+
+        if (cx !== cx2 || cy !== cy2) {
+            ch = currentWorld.getLoadedChunk(cx2, cy2);
+        }
+
+        rpx = mod(rpx, Chunk.SizeX);
+        rpy = mod(rpy, Chunk.SizeY);
         const block = ch.blocks[Chunk.index(rpx, rpy, rpzf)];
         if (block !== null && block !== AirBlock) return true;
         const block2 = ch.blocks[Chunk.index(rpx, rpy, rpzf+1)];
         return block2 !== null && block2 !== AirBlock;
     }
 
+    console.log(rpx + " " + rpy);
     //console.log('velocity[0]: ' + velocity[0] + ' velocity[1]: ' + velocity)
     if (velocity[0] > 0 && ((rpxf+1-rpx) < 0.2) && check(rpxf+1, rpyf)) {
         //console.log('xpos block');
