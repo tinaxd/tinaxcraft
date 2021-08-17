@@ -706,6 +706,8 @@ function handleMovement(now: number) {
 
         // player position move
         const move = currentMove;
+        const op = currentOp;
+        const JumpPower = 4;
         vec3.normalize(lookAtVec, lookAtVec);
         const dp = vec3.create();
         //console.log(lookAtVec);
@@ -745,6 +747,12 @@ function handleMovement(now: number) {
         } else {
             // apply gravity
             vec3.scaleAndAdd(velocity, velocity, gravity, deltaMillis/1000);
+        }
+
+        // jump 処理
+        if ((op & OpJump) && isOnLand) {
+            console.log("jump");
+            velocity[2] += JumpPower;
         }
 
         wallCheck();
