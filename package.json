@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack",
-    "start": "webpack serve --open"
+    "build": "export SET NODE_OPTIONS=--openssl-legacy-provider && webpack",
+    "start": "export SET NODE_OPTIONS=--openssl-legacy-provider && webpack serve --open"
   },
   "author": "tinaxd",
   "license": "MIT",

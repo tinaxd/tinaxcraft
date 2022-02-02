@@ -10,6 +10,7 @@ import { defaultTexture, TextureInfo } from './texture';
 import { clamp, intMod, mod, mix } from './util';
 import { enableAudio, playSFX } from './sound';
 import { PerlinChunkGenerator } from './worldgen';
+import { PersistentWorld } from './worldio';
 
 const canvas = document.querySelector('#webglCanvas') as HTMLCanvasElement;
 let gl: WebGLRenderingContext = null;
@@ -26,7 +27,7 @@ window.addEventListener('load', async () => {
         return;
     }
 
-    initWebgl(() => startRenderLoop());
+    initWebgl(async () => await startRenderLoop());
 });
 
 const MoveForwardBit = 1;
@@ -157,15 +158,15 @@ function neighborCoord(x: number, y: number, z: number, face: number): [number, 
     }
 }
 
-function handleBlockClick(i: number, j: number, k: number, face: number, clickButton: number) {
+async function handleBlockClick(i: number, j: number, k: number, face: number, clickButton: number) {
     const isInRange = (x: number, y: number, z: number): boolean => {
         return (-64 <= x && x < 64) && (-64 <= y && y < 64) && (-128 <= z && z < 128);
     }
-    const getChunk = (i: number, j: number): [Chunk, number, number] => {
+    const getChunk = async (i: number, j: number): Promise<[Chunk, number, number]> => {
         const [cx, cy] = chunkCoordOfPlayerPosition();
         const [rcx, rcy] = chunkCoordOfBlockIndex(i, j);
         return [
-            currentWorld.getLoadedChunkOrCreate(cx+rcx, cy+rcy),
+            await currentWorld.getLoadedChunkOrCreate(cx+rcx, cy+rcy),
             rcx,
             rcy
         ];
@@ -174,7 +175,7 @@ function handleBlockClick(i: number, j: number, k: number, face: number, clickBu
     case 0: { // block destruction
         if (isInRange(i, j, k)) {
             // TODO:
-            const [chunk, rcx, rcy] = getChunk(i, j);
+            const [chunk, rcx, rcy] = await getChunk(i, j);
             const [rix, riy] = relativeIndexInChunk(i, j);
             chunk.blocks[Chunk.index(rix, riy, k)] = AirBlock;
             console.log(bufferIndex(rcx, rcy) + " is dirty");
@@ -190,7 +191,7 @@ function handleBlockClick(i: number, j: number, k: number, face: number, clickBu
         if (isInRange(nx, ny, nz)) {
             //console.log("block plac")
             // TODO:
-            const [chunk, rcx, rcy] = getChunk(nx, ny);
+            const [chunk, rcx, rcy] = await getChunk(nx, ny);
             const [rix, riy] = relativeIndexInChunk(nx, ny);
             chunk.blocks[Chunk.index(rix, riy, nz)] = GrassBlock;
             playSFX('block-destroy');
@@ -524,9 +525,9 @@ function initWebgl(done: () => void) {
     bufferTextures(() => done());
 }
 
-function startRenderLoop() {
+async function startRenderLoop() {
     lastRender = performance.now();
-    renderLoop(lastRender+1);
+    await renderLoop(lastRender+1);
 }
 
 const BlockXScale = 0.5;
@@ -543,7 +544,11 @@ const zUpVec = vec3.fromValues(0, 0, 1);
 let cameraAngleX = 0;
 let cameraAngleY = 0;
 
-let currentWorld: World = new World(new PerlinChunkGenerator());
+let currentWorld: PersistentWorld = new PersistentWorld(new PerlinChunkGenerator());
+currentWorld.initializeStorage();
+setInterval(() => {
+    currentWorld.saveAll();
+}, 5000);
 let chunkMovedInfo = {
     moved: true,
     dx: 0,
@@ -561,15 +566,15 @@ function nearbyChunkCoords(): Array<[number, number]> {
     return chunks;
 }
 
-function updateBufferOfChunk(buffer: WebGLBuffer, cx: number, cy: number, facing: number): number {
-    const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
+async function updateBufferOfChunk(buffer: WebGLBuffer, cx: number, cy: number, facing: number): Promise<number> {
+    const chunk = await currentWorld.getLoadedChunkOrCreate(cx, cy);
     const vertices = genChunkVertices(chunk, facing);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Int8Array(vertices), gl.STATIC_DRAW);
     return vertices.length / 8;
 }
 
-function bufferBlocks(facing: number) {
+async function bufferBlocks(facing: number) {
     for (let i=0; i<nVisibleChunks; i++) {
         if (chunkDirty[i]) {
             const rcx = (i % (2*sideChunksX+1)) - sideChunksX;
@@ -577,16 +582,16 @@ function bufferBlocks(facing: number) {
             //console.log('redrawing: rcx ' + rcx + ' rcy ' + rcy);
             const [pcx, pcy] = chunkCoordOfPlayerPosition();
             const [cx, cy] = [pcx+rcx, pcy+rcy];
-            const nVertices = updateBufferOfChunk(vertexBuffers[i], cx, cy, facing);
+            const nVertices = await updateBufferOfChunk(vertexBuffers[i], cx, cy, facing);
             numberOfVertices[i] = nVertices;
         }
     }
 }
 
-function renderLoop(now: number) {
+async function renderLoop(now: number) {
     handleMovement(now);
     renderCanvas();
-    renderDepthFb();
+    await renderDepthFb();
     renderCenterCursor();
     
     for (let i=0; i<nVisibleChunks; i++) chunkDirty[i] = false;
@@ -876,7 +881,7 @@ function renderCanvas() {
     }
 }
 
-function renderDepthFb() {
+async function renderDepthFb() {
     gl.useProgram(pickerProgram);
     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFb);
 
@@ -899,7 +904,7 @@ function renderDepthFb() {
     gl.uniformMatrix4fv(pickerUniforms.viewUni, false, view);
     gl.uniformMatrix4fv(pickerUniforms.projUni, false, proj);
 
-    renderDepthBlocks();
+    await renderDepthBlocks();
 }
 
 function chunkCoordOfBlockIndex(i: number, j: number): [number, number] {
@@ -930,7 +935,7 @@ function relativeIndexInChunk(i: number, j: number): [number, number] {
 
 let lastDepthBlockVerticesNumbers: number[] = null;
 
-function renderDepthBlocks() {
+async function renderDepthBlocks() {
     function appendDepthBlock(out: number[], x: number, y: number, z: number, faceToDraw: number) {
         const i = x;
         const j = y;
@@ -1065,7 +1070,7 @@ function renderDepthBlocks() {
             const rcx = (i % (2*sideChunksX+1)) - sideChunksX;
             const rcy = Math.floor(i/(2*sideChunksY+1)) - sideChunksY;
             const [cx, cy] = [px+rcx, py+rcy];
-            const chunk = currentWorld.getLoadedChunkOrCreate(cx, cy);
+            const chunk = await currentWorld.getLoadedChunkOrCreate(cx, cy);
             const exists = (i: number, j: number, k: number): boolean => {
                 if (i < 0 || i >= sizeX || j < 0 || j >= sizeY || k < 0 || k >= sizeZ) {
                     return false;

@@ -6,6 +6,20 @@ export class Block {
     constructor(id: number) {
         this.id = id;
     }
+
+    toJSON() {
+        return this.id;
+    }
+
+    static fromJSON(id: number) {
+        switch (id) {
+        case 0:
+            return AirBlock;
+        case 1:
+            return GrassBlock;
+        }
+        return new Block(id);
+    }
 }
 
 export const AirBlock = new Block(0);
@@ -40,6 +54,23 @@ export class Chunk {
             this._j * Chunk.SizeY + ry,
             rz
         ];
+    }
+
+    toJSON() {
+        const blocks: number[] = [];
+        for (let z=0; z<Chunk.SizeZ; z++) {
+            for (let y=0; y<Chunk.SizeY; y++) {
+                for (let x=0; x<Chunk.SizeX; x++) {
+                    const block = this.blocks[Chunk.index(x, y, z)];
+                    blocks.push(block.toJSON());
+                }
+            }
+        }
+        return {
+            version: 1,
+            chunkIndex: [this._i, this._j],
+            blocks: blocks
+        };
     }
 }
 
