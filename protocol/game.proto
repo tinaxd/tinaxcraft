@@ -1,4 +1,5 @@
 syntax = "proto3";
+option go_package = "github.com/tinaxd/tinaxcraft";
 
 message WorldChunk {
   int32 baseX = 1;
@@ -8,8 +9,8 @@ message WorldChunk {
 
 message Vector3 {
   int32 x = 1;
-  int32 y = 1;
-  int32 z = 1;
+  int32 y = 2;
+  int32 z = 3;
 }
 
 message ChunkChange {
