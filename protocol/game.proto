@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+message WorldChunk {
+  int32 baseX = 1;
+  int32 baseZ = 2;
+  repeated int32 blockIDs = 3;
+}
+
+message Vector3 {
+  int32 x = 1;
+  int32 y = 1;
+  int32 z = 1;
+}
+
+message ChunkChange {
+  int32 baseX = 1;
+  int32 baseZ = 2;
+  Vector3 offset = 3;
+  int32 newBlockID = 4;
+}
+
+message Response {
+  oneof response_oneof {
+    WorldChunk chunkResponse = 1;
+    ChunkChange chunkChange = 2;
+  }
+}
+
+message ChunkRequest {
+  int32 baseX = 1;
+  int32 baseZ = 2;
+}
+
+message Request {
+  oneof request_oneof { ChunkRequest chunkRequest = 1; }
+}
