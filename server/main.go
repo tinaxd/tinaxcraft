@@ -7,14 +7,30 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/tinaxd/tinaxcraft/storage"
+	"github.com/tinaxd/tinaxcraft/types"
 	"github.com/tinaxd/tinaxcraft/world"
+	"google.golang.org/protobuf/proto"
 )
 
 var addr = flag.String("addr", "localhost:8080", "http service address")
 
 var upgrader = websocket.Upgrader{} // use default options
 
-func echo(w http.ResponseWriter, r *http.Request) {
+type GameServer struct {
+}
+
+func (gs *GameServer) handleChunkRequest(req *types.ChunkRequest, c *websocket.Conn) {
+
+}
+
+func (gs *GameServer) handleRequest(r *types.Request, c *websocket.Conn) {
+	switch req := r.Request.(type) {
+	case *types.Request_ChunkRequest:
+		gs.handleChunkRequest(req.ChunkRequest, c)
+	}
+}
+
+func (gs *GameServer) Handler(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
@@ -22,7 +38,7 @@ func echo(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close()
 	for {
-		mt, _, err := c.ReadMessage()
+		mt, message, err := c.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			break
@@ -31,6 +47,12 @@ func echo(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		request := &types.Request{}
+		if err := proto.Unmarshal(message, request); err != nil {
+			// bad request
+			break
+		}
+		gs.handleRequest(request, c)
 	}
 }
 
@@ -48,8 +70,11 @@ func main() {
 		panic(err)
 	}
 
-	// flag.Parse()
-	// log.SetFlags(0)
-	// http.HandleFunc("/echo", echo)
-	// log.Fatal(http.ListenAndServe(*addr, nil))
+	flag.Parse()
+	log.SetFlags(0)
+
+	gs := &GameServer{}
+
+	http.HandleFunc("/", gs.Handler)
+	log.Fatal(http.ListenAndServe(*addr, nil))
 }

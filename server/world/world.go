@@ -1,5 +1,7 @@
 package world
 
+import "sync"
+
 const (
 	ChunkXSize = 16
 	ChunkYSize = 16
@@ -18,6 +20,7 @@ func NewBlockFromID(id int) Block {
 
 type Chunk struct {
 	Blocks []Block
+	L      sync.RWMutex
 }
 
 func CalcOffset(x, y, z int) int {
@@ -26,4 +29,7 @@ func CalcOffset(x, y, z int) int {
 
 func NewChunkFromBlocks(blocks []Block) *Chunk {
 	return &Chunk{Blocks: blocks}
+}
+
+type World struct {
 }

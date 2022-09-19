@@ -21,7 +21,7 @@ message ChunkChange {
 }
 
 message Response {
-  oneof response_oneof {
+  oneof response {
     WorldChunk chunkResponse = 1;
     ChunkChange chunkChange = 2;
   }
@@ -33,5 +33,5 @@ message ChunkRequest {
 }
 
 message Request {
-  oneof request_oneof { ChunkRequest chunkRequest = 1; }
+  oneof request { ChunkRequest chunkRequest = 1; }
 }
