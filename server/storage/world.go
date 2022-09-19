@@ -39,7 +39,7 @@ func (s *Storage) WriteChunk(chunk *world.Chunk, baseX, baseY int) error {
 	x2 := x1 + world.ChunkXSize - 1
 	y1 := baseY * world.ChunkYSize
 	y2 := y1 + world.ChunkYSize - 1
-	if _, err := tx.Exec("DELETE FROM world_blocks WHERE x BETWEEN ? AND ? AND z BETWEEN ? AND ?", x1, x2, y1, y2); err != nil {
+	if _, err := tx.Exec("DELETE FROM world_blocks WHERE x BETWEEN ? AND ? AND y BETWEEN ? AND ?", x1, x2, y1, y2); err != nil {
 		return err
 	}
 
