@@ -19,7 +19,7 @@ func (s *Storage) WriteChunk(chunk *world.Chunk, baseX, baseY int) error {
 	for x := 0; x < world.ChunkXSize; x++ {
 		for y := 0; y < world.ChunkYSize; y++ {
 			for z := 0; z < world.ChunkZSize; z++ {
-				block := chunk.Blocks[world.CalcOffset(x, z, y)]
+				block := chunk.Blocks[world.CalcOffset(x, y, z)]
 				if block.BlockID == 0 {
 					// skip air blocks
 					continue
