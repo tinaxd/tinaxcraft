@@ -21,35 +21,35 @@ func NewPerlinChunkGenerator(seed int) *PerlinChunkGenerator {
 
 type heightMap []int
 
-func calcHeightMapIndex(x, z int) int {
-	return x + z*ChunkXSize
+func calcHeightMapIndex(x, y int) int {
+	return x + y*ChunkXSize
 }
 
-func (g *PerlinChunkGenerator) generateChunkHeight(baseX, baseZ int) (heightMap, int, int) {
+func (g *PerlinChunkGenerator) generateChunkHeight(baseX, baseY int) (heightMap, int, int) {
 	source := rand.NewSource(int64(g.seed))
 	p := perlin.NewPerlinRandSource(2.0, 2.0, 3, source)
 
-	heightMap := make(heightMap, ChunkXSize*ChunkZSize)
+	heightMap := make(heightMap, ChunkXSize*ChunkYSize)
 
-	for z := 0; z < ChunkZSize; z++ {
+	for y := 0; y < ChunkYSize; y++ {
 		for x := 0; x < ChunkXSize; x++ {
 			px := float64(baseX) + (float64(x) / float64(ChunkXSize))
-			pz := float64(baseZ) + (float64(z) / float64(ChunkZSize))
-			noise := p.Noise2D(px, pz)
-			heightMap[calcHeightMapIndex(x, z)] = 64 + int(math.Round((noise+1.0)/2.0*16.0))
+			py := float64(baseY) + (float64(y) / float64(ChunkYSize))
+			noise := p.Noise2D(px, py)
+			heightMap[calcHeightMapIndex(x, y)] = 64 + int(math.Round((noise+1.0)/2.0*16.0))
 		}
 	}
 
-	return heightMap, ChunkXSize, ChunkZSize
+	return heightMap, ChunkXSize, ChunkYSize
 }
 
-func (g *PerlinChunkGenerator) GenerateChunk(baseX, baseZ int) *Chunk {
-	heightMap, _, _ := g.generateChunkHeight(baseX, baseZ)
-	blocks := make([]Block, ChunkXSize*ChunkYSize*ChunkZSize)
-	for z := 0; z < ChunkZSize; z++ {
+func (g *PerlinChunkGenerator) GenerateChunk(baseX, baseY int) *Chunk {
+	heightMap, _, _ := g.generateChunkHeight(baseX, baseY)
+	blocks := make([]Block, ChunkXSize*ChunkZSize*ChunkYSize)
+	for y := 0; y < ChunkYSize; y++ {
 		for x := 0; x < ChunkXSize; x++ {
-			h := heightMap[calcHeightMapIndex(x, z)]
-			for y := 0; y <= h; y++ {
+			h := heightMap[calcHeightMapIndex(x, y)]
+			for z := 0; z <= h; z++ {
 				blocks[CalcOffset(x, y, z)] = NewBlockFromID(1)
 			}
 		}

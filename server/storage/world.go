@@ -4,12 +4,12 @@ import "github.com/tinaxd/tinaxcraft/world"
 
 type worldBlocks struct {
 	X       int `db:"x"`
-	Z       int `db:"z"`
 	Y       int `db:"y"`
+	Z       int `db:"z"`
 	BlockID int `db:"block_id"`
 }
 
-func (s *Storage) WriteChunk(chunk *world.Chunk, baseX, baseZ int) error {
+func (s *Storage) WriteChunk(chunk *world.Chunk, baseX, baseY int) error {
 	tx, err := s.db.Beginx()
 	if err != nil {
 		return err
@@ -17,17 +17,17 @@ func (s *Storage) WriteChunk(chunk *world.Chunk, baseX, baseZ int) error {
 
 	insertData := make([]worldBlocks, 0, len(chunk.Blocks))
 	for x := 0; x < world.ChunkXSize; x++ {
-		for z := 0; z < world.ChunkZSize; z++ {
-			for y := 0; y < world.ChunkYSize; y++ {
-				block := chunk.Blocks[world.CalcOffset(x, y, z)]
+		for y := 0; y < world.ChunkYSize; y++ {
+			for z := 0; z < world.ChunkZSize; z++ {
+				block := chunk.Blocks[world.CalcOffset(x, z, y)]
 				if block.BlockID == 0 {
 					// skip air blocks
 					continue
 				}
 				insertData = append(insertData, worldBlocks{
 					X:       x,
-					Y:       y,
 					Z:       z,
+					Y:       y,
 					BlockID: block.BlockID,
 				})
 			}
@@ -37,9 +37,9 @@ func (s *Storage) WriteChunk(chunk *world.Chunk, baseX, baseZ int) error {
 	// delete all blocks in chunk
 	x1 := baseX * world.ChunkXSize
 	x2 := x1 + world.ChunkXSize - 1
-	z1 := baseZ * world.ChunkZSize
-	z2 := z1 + world.ChunkZSize - 1
-	if _, err := tx.Exec("DELETE FROM world_blocks WHERE x BETWEEN ? AND ? AND z BETWEEN ? AND ?", x1, x2, z1, z2); err != nil {
+	y1 := baseY * world.ChunkYSize
+	y2 := y1 + world.ChunkYSize - 1
+	if _, err := tx.Exec("DELETE FROM world_blocks WHERE x BETWEEN ? AND ? AND z BETWEEN ? AND ?", x1, x2, y1, y2); err != nil {
 		return err
 	}
 

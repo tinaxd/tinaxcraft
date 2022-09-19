@@ -2,8 +2,8 @@ package world
 
 const (
 	ChunkXSize = 16
-	ChunkZSize = 16
-	ChunkYSize = 256
+	ChunkYSize = 16
+	ChunkZSize = 256
 
 	GrassBlockID = 1
 )
@@ -21,7 +21,7 @@ type Chunk struct {
 }
 
 func CalcOffset(x, y, z int) int {
-	return z + (x * ChunkZSize) + (y * ChunkXSize * ChunkZSize)
+	return y + (x * ChunkYSize) + (z * ChunkXSize * ChunkYSize)
 }
 
 func NewChunkFromBlocks(blocks []Block) *Chunk {
