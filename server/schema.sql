@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS world_blocks(
+    x INTEGER NOT NULL,
+    z INTEGER NOT NULL,
+    y INTEGER NOT NULL,
+    block_id INTEGER NOT NULL,
+    PRIMARY KEY (x, z, y)
+);

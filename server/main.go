@@ -1,10 +1,3 @@
-// Copyright 2015 The Gorilla WebSocket Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
-//go:build ignore
-// +build ignore
-
 package main
 
 import (
@@ -13,6 +6,8 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	"github.com/tinaxd/tinaxcraft/storage"
+	"github.com/tinaxd/tinaxcraft/world"
 )
 
 var addr = flag.String("addr", "localhost:8080", "http service address")
@@ -42,8 +37,21 @@ func echo(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	flag.Parse()
-	log.SetFlags(0)
-	http.HandleFunc("/echo", echo)
-	log.Fatal(http.ListenAndServe(*addr, nil))
+	storage, err := storage.Connect("world.sqlite3")
+	if err != nil {
+		panic(err)
+	}
+
+	gen := world.NewPerlinChunkGenerator(1)
+
+	chunk0 := gen.GenerateChunk(0, 0)
+
+	if err := storage.WriteChunk(chunk0, 0, 0); err != nil {
+		panic(err)
+	}
+
+	// flag.Parse()
+	// log.SetFlags(0)
+	// http.HandleFunc("/echo", echo)
+	// log.Fatal(http.ListenAndServe(*addr, nil))
 }
