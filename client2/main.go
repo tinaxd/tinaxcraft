@@ -4,44 +4,33 @@ import (
 	"runtime"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
+	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/tinaxd/tinaxcraft/client2/renderer"
-	"github.com/veandco/go-sdl2/sdl"
 )
 
 func init() {
 	runtime.LockOSThread()
 }
 
-func initMain() (*sdl.Window, *renderer.Renderer) {
-	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
-		panic(err)
-	}
-	// defer sdl.Quit()
-
-	window, err := sdl.CreateWindow("test", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
-		800, 600, sdl.WINDOW_SHOWN|sdl.WINDOW_RESIZABLE|sdl.WINDOW_OPENGL)
+func initMain() (*glfw.Window, *renderer.Renderer) {
+	err := glfw.Init()
 	if err != nil {
 		panic(err)
 	}
-	// defer window.Destroy()
 
-	glCtx, err := window.GLCreateContext()
+	window, err := glfw.CreateWindow(640, 480, "Testing", nil, nil)
 	if err != nil {
 		panic(err)
 	}
+
+	window.MakeContextCurrent()
+
+	// glCtx := window.GetGLXContext()
 
 	// err = sdl.GLSetSwapInterval(1)
 	// if err != nil {
 	// 	panic(err)
 	// }
-
-	if err := window.GLMakeCurrent(glCtx); err != nil {
-		panic(err)
-	}
-
-	if err := sdl.GLSetSwapInterval(1); err != nil {
-		panic(err)
-	}
 
 	if err := gl.Init(); err != nil {
 		panic(err)
@@ -57,19 +46,14 @@ func initMain() (*sdl.Window, *renderer.Renderer) {
 func main() {
 	window, r := initMain()
 
-	running := true
-	for running {
-		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch event.(type) {
-			case *sdl.QuitEvent:
-				println("Quit")
-				running = false
-			}
-		}
+	for !window.ShouldClose() {
+		// Do OpenGL stuff.
 		drawGL()
 		r.Draw()
-		window.GLSwap()
+		window.SwapBuffers()
+		glfw.PollEvents()
 	}
+
 }
 
 func drawGL() {
