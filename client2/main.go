@@ -45,6 +45,7 @@ func initMain() (*glfw.Window, *renderer.Renderer) {
 
 func main() {
 	window, r := initMain()
+	defer glfw.Terminate()
 
 	for !window.ShouldClose() {
 		// Do OpenGL stuff.
