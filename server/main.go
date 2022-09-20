@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"github.com/tinaxd/tinaxcraft/storage"
-	"github.com/tinaxd/tinaxcraft/types"
-	"github.com/tinaxd/tinaxcraft/world"
+	"github.com/tinaxd/tinaxcraft/server/storage"
+	"github.com/tinaxd/tinaxcraft/server/types"
+	"github.com/tinaxd/tinaxcraft/server/world"
 	"google.golang.org/protobuf/proto"
 )
 

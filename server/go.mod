@@ -1,4 +1,4 @@
-module github.com/tinaxd/tinaxcraft
+module github.com/tinaxd/tinaxcraft/server
 
 go 1.19
 

@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/tinaxd/tinaxcraft/types";
+option go_package = "github.com/tinaxd/tinaxcraft/server/types";
 
 message WorldChunk {
   int32 baseX = 1;

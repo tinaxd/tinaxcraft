@@ -1,6 +1,6 @@
 package storage
 
-import "github.com/tinaxd/tinaxcraft/world"
+import "github.com/tinaxd/tinaxcraft/server/world"
 
 type worldBlocks struct {
 	X       int `db:"x"`
