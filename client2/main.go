@@ -4,6 +4,7 @@ import (
 	"runtime"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
+	"github.com/tinaxd/tinaxcraft/client2/renderer"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -11,7 +12,7 @@ func init() {
 	runtime.LockOSThread()
 }
 
-func initMain() (*sdl.Window, *Renderer) {
+func initMain() (*sdl.Window, *renderer.Renderer) {
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
 		panic(err)
 	}
@@ -46,7 +47,7 @@ func initMain() (*sdl.Window, *Renderer) {
 		panic(err)
 	}
 
-	r := NewRenderer()
+	r := renderer.NewRenderer()
 	r.InitGL()
 
 	// sdl.GLDeleteContext(glCtx)
@@ -54,7 +55,7 @@ func initMain() (*sdl.Window, *Renderer) {
 }
 
 func main() {
-	window, _ := initMain()
+	window, r := initMain()
 
 	running := true
 	for running {
@@ -66,10 +67,12 @@ func main() {
 			}
 		}
 		drawGL()
+		r.Draw()
 		window.GLSwap()
 	}
 }
 
 func drawGL() {
-	gl.Clear(gl.COLOR_BUFFER_BIT)
+	gl.ClearColor(0, 0, 0.4, 0)
+	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 }
