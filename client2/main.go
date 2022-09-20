@@ -11,18 +11,18 @@ func init() {
 	runtime.LockOSThread()
 }
 
-func initMain() {
+func initMain() (*sdl.Window, *Renderer) {
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
 		panic(err)
 	}
-	defer sdl.Quit()
+	// defer sdl.Quit()
 
 	window, err := sdl.CreateWindow("test", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
 		800, 600, sdl.WINDOW_SHOWN|sdl.WINDOW_RESIZABLE|sdl.WINDOW_OPENGL)
 	if err != nil {
 		panic(err)
 	}
-	defer window.Destroy()
+	// defer window.Destroy()
 
 	glCtx, err := window.GLCreateContext()
 	if err != nil {
@@ -46,15 +46,15 @@ func initMain() {
 		panic(err)
 	}
 
-	gl.ClearColor(0, 0, 0, 1)
-	gl.Clear(gl.COLOR_BUFFER_BIT)
-	// window.GLSwap()
+	r := NewRenderer()
+	r.InitGL()
 
 	// sdl.GLDeleteContext(glCtx)
+	return window, r
 }
 
 func main() {
-	initMain()
+	window, _ := initMain()
 
 	running := true
 	for running {
@@ -63,8 +63,13 @@ func main() {
 			case *sdl.QuitEvent:
 				println("Quit")
 				running = false
-				break
 			}
 		}
+		drawGL()
+		window.GLSwap()
 	}
+}
+
+func drawGL() {
+	gl.Clear(gl.COLOR_BUFFER_BIT)
 }
