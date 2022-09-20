@@ -1,5 +1,9 @@
 package renderer
 
 type worldAttribs struct {
-	PositionLoc int32
+	PositionLoc uint32
+}
+
+type worldUniforms struct {
+	MVPLoc uint32
 }

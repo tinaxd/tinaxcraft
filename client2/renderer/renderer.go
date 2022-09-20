@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
+	"github.com/go-gl/mathgl/mgl32"
 )
 
 type vertexBuffer struct {
@@ -21,7 +22,8 @@ type Renderer struct {
 	chunkIsDirty  []bool
 	vertexBuffers []vertexBuffer
 
-	worldAttribs worldAttribs
+	worldAttribs  worldAttribs
+	worldUniforms worldUniforms
 }
 
 func NewRenderer() *Renderer {
@@ -59,17 +61,23 @@ func (r *Renderer) InitGL() {
 	}
 	checkPanic("CreateBuffers")
 
-	// World shader attrib locations
+	// World shader attrib/uniform locations
 	worldProgram := prog
 	positionLoc := gl.GetAttribLocation(worldProgram, gl.Str("position\x00"))
 	r.worldAttribs = worldAttribs{
-		PositionLoc: positionLoc,
+		PositionLoc: uint32(positionLoc),
 	}
 	checkPanic("GetAttribLocation")
+	mvpLoc := gl.GetUniformLocation(worldProgram, gl.Str("MVP\x00"))
+	r.worldUniforms = worldUniforms{
+		MVPLoc: uint32(mvpLoc),
+	}
+	checkPanic("GetUniformLocation")
 
 	// Load textures
 	r.loadTextures()
 
+	// test triangle
 	v := make([]float32, 0)
 	v = append(v, -1, -1, 0)
 	v = append(v, 1, -1, 0)
@@ -78,6 +86,13 @@ func (r *Renderer) InitGL() {
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffers[0].ID)
 	gl.BufferData(gl.ARRAY_BUFFER, len(v)*4, gl.Ptr(&v[0]), gl.STATIC_DRAW)
 	checkPanic("BufferData")
+
+	// test uniforms
+	projection := mgl32.Perspective(mgl32.DegToRad(45), 4.0/3.0, 0.1, 100.0)
+	view := mgl32.LookAt(4, 4, 3, 0, 0, 0, 0, 1, 0)
+	model := mgl32.Ident4()
+	mvp := projection.Mul4(view).Mul4(model)
+	gl.UniformMatrix4fv(int32(r.worldUniforms.MVPLoc), 1, false, &mvp[0])
 }
 
 func (r *Renderer) loadTextures() {
@@ -146,7 +161,6 @@ func getRGBAs(img image.Image) []uint32 {
 }
 
 func (r *Renderer) Draw() {
-
 	gl.EnableVertexAttribArray(0)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffers[0].ID)
 	gl.VertexAttribPointer(
