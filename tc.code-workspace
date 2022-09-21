@@ -1,0 +1,20 @@
+{
+  "folders": [
+	{
+		"path": "client"
+	},
+	{
+		"path": "server"
+	},
+	{
+		"path": "protocol"
+	},
+	{
+		"path": "client2"
+	},
+	{
+		"path": "client3"
+	}
+],
+  "settings": {}
+}
