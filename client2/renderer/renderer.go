@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/tinaxd/tinaxcraft/client2/engine"
 )
 
 type vertexBuffer struct {
@@ -86,13 +87,6 @@ func (r *Renderer) InitGL() {
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffers[0].ID)
 	gl.BufferData(gl.ARRAY_BUFFER, len(v)*4, gl.Ptr(&v[0]), gl.STATIC_DRAW)
 	checkPanic("BufferData")
-
-	// test uniforms
-	projection := mgl32.Perspective(mgl32.DegToRad(45), 4.0/3.0, 0.1, 100.0)
-	view := mgl32.LookAt(4, 4, 3, 0, 0, 0, 0, 1, 0)
-	model := mgl32.Ident4()
-	mvp := projection.Mul4(view).Mul4(model)
-	gl.UniformMatrix4fv(int32(r.worldUniforms.MVPLoc), 1, false, &mvp[0])
 }
 
 func (r *Renderer) loadTextures() {
@@ -160,7 +154,15 @@ func getRGBAs(img image.Image) []uint32 {
 	return array
 }
 
-func (r *Renderer) Draw() {
+func (r *Renderer) Draw(e *engine.Engine) {
+	// test uniforms
+	projection := mgl32.Perspective(mgl32.DegToRad(45), 4.0/3.0, 0.1, 100.0)
+	p := e.PlayerPosition()
+	view := mgl32.LookAt(p[0], p[1], p[2], 0, 0, 0, 0, 1, 0)
+	model := mgl32.Ident4()
+	mvp := projection.Mul4(view).Mul4(model)
+	gl.UniformMatrix4fv(int32(r.worldUniforms.MVPLoc), 1, false, &mvp[0])
+
 	gl.EnableVertexAttribArray(0)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffers[0].ID)
 	gl.VertexAttribPointer(

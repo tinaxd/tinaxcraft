@@ -2,6 +2,7 @@ package main
 
 import (
 	"runtime"
+	"time"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -49,11 +50,23 @@ func main() {
 	defer glfw.Terminate()
 
 	engine := engine.NewEngine()
+	engine.SetCallbacks(window)
 
+	lastTime := time.Now().UnixMilli()
 	for !window.ShouldClose() {
 		// Do OpenGL stuff.
+		nowTime := time.Now().UnixMilli()
+		if lastTime == nowTime {
+			continue
+		}
+		dt := float32(nowTime-lastTime) / 1000.0
+		lastTime = nowTime
+
+		engine.Step(dt)
+		// fmt.Printf("position: %v", engine.PlayerPosition())
+
 		drawGL()
-		r.Draw()
+		r.Draw(engine)
 		window.SwapBuffers()
 		glfw.PollEvents()
 	}
