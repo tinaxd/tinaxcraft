@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/tinaxd/tinaxcraft/client2/engine"
 	"github.com/tinaxd/tinaxcraft/client2/renderer"
 )
 
@@ -46,6 +47,8 @@ func initMain() (*glfw.Window, *renderer.Renderer) {
 func main() {
 	window, r := initMain()
 	defer glfw.Terminate()
+
+	engine := engine.NewEngine()
 
 	for !window.ShouldClose() {
 		// Do OpenGL stuff.
