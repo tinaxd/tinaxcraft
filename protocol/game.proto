@@ -1,0 +1,37 @@
+syntax = "proto3";
+option go_package = "github.com/tinaxd/tinaxcraft/server/types";
+
+message WorldChunk {
+  int32 baseX = 1;
+  int32 baseZ = 2;
+  repeated int32 blockIDs = 3;
+}
+
+message Vector3 {
+  int32 x = 1;
+  int32 y = 2;
+  int32 z = 3;
+}
+
+message ChunkChange {
+  int32 baseX = 1;
+  int32 baseZ = 2;
+  Vector3 offset = 3;
+  int32 newBlockID = 4;
+}
+
+message Response {
+  oneof response {
+    WorldChunk chunkResponse = 1;
+    ChunkChange chunkChange = 2;
+  }
+}
+
+message ChunkRequest {
+  int32 baseX = 1;
+  int32 baseZ = 2;
+}
+
+message Request {
+  oneof request { ChunkRequest chunkRequest = 1; }
+}
