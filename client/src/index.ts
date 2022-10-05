@@ -12,7 +12,7 @@ import { enableAudio, playSFX } from "./sound";
 import { PerlinChunkGenerator } from "./worldgen";
 
 const canvas = document.querySelector("#webglCanvas") as HTMLCanvasElement;
-let gl: WebGLRenderingContext = null;
+let gl: WebGLRenderingContext = null as any;
 
 window.addEventListener("load", async () => {
   //await initUtil();
@@ -20,7 +20,7 @@ window.addEventListener("load", async () => {
   canvas.width = window.innerWidth * 0.8;
   canvas.height = window.innerHeight * 0.8;
 
-  gl = canvas.getContext("webgl");
+  gl = canvas.getContext("webgl")!;
   if (!gl) {
     alert("failed to initialize WebGL!");
     return;
@@ -39,7 +39,7 @@ const OpJump = 1;
 let currentMove = 0;
 let currentOp = 0;
 let position = vec3.fromValues(0, 0, 55);
-let lastChunkCoord: [number, number] = null;
+let lastChunkCoord: [number, number] | null = null;
 
 canvas.addEventListener("keydown", (event) => {
   if (event.repeat) return false;
@@ -172,7 +172,7 @@ function neighborCoord(
     case ZPOS:
       return [x, y, z + 1];
     default:
-      return null;
+      throw new Error("unreachable");
   }
 }
 
@@ -191,6 +191,7 @@ function handleBlockClick(
     const [rcx, rcy] = chunkCoordOfBlockIndex(i, j);
     return [currentWorld.getLoadedChunkOrCreate(cx + rcx, cy + rcy), rcx, rcy];
   };
+  console.log(clickButton);
   switch (clickButton) {
     case 0: {
       // block destruction
@@ -372,6 +373,10 @@ function genChunkVertices(chunk: Chunk, faceToDraw: number): number[] {
           if ((ftd & ZPOSF) != 0 && exists(i, j, k + 1)) ftd &= ~ZPOSF;
           if (ftd === 0) continue;
           const texture = defaultTexture.get(block);
+          if (texture === undefined) {
+            console.warn("texture for block id " + block.id + " not found");
+            continue;
+          }
           vertices.push(...genBlockVertices(i, j, k, texture, ftd));
         }
       }
@@ -396,8 +401,17 @@ function checkProgram(program: WebGLShader) {
 
 function buildShader(vertexShaderSource: string, fragmentShaderSource: string) {
   const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+  if (vertexShader === null) {
+    return null;
+  }
   const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+  if (fragmentShader === null) {
+    return null;
+  }
   const program = gl.createProgram();
+  if (program === null) {
+    return null;
+  }
   gl.shaderSource(vertexShader, vertexShaderSource);
   gl.compileShader(vertexShader);
   checkCompilation(vertexShader);
@@ -412,39 +426,59 @@ function buildShader(vertexShaderSource: string, fragmentShaderSource: string) {
   return program;
 }
 
-let chunkDirty: boolean[] = null;
+let chunkDirty: boolean[];
 
-let vertexBuffers: WebGLBuffer[] = null;
-let numberOfVertices: number[] = null;
+let vertexBuffers: WebGLBuffer[];
+let numberOfVertices: number[];
 
-let mainAttributes = {
-  position: null,
-  normal: null,
-  texCoord: null,
+let mainAttributes: {
+  position: number;
+  normal: number;
+  texCoord: number;
+} = {
+  position: null as any,
+  normal: null as any,
+  texCoord: null as any,
 };
 
-let uniformLocs = {
-  modelUni: null,
-  viewUni: null,
-  projUni: null,
-  parallelRayUni: null,
-  playerPositionInChunk: null,
+let uniformLocs: {
+  modelUni: WebGLUniformLocation;
+  viewUni: WebGLUniformLocation;
+  projUni: WebGLUniformLocation;
+  parallelRayUni: WebGLUniformLocation;
+  playerPositionInChunk: WebGLUniformLocation;
+} = {
+  modelUni: null as any,
+  viewUni: null as any,
+  projUni: null as any,
+  parallelRayUni: null as any,
+  playerPositionInChunk: null as any,
 };
 
-let pickerUniforms = {
-  modelUni: null,
-  viewUni: null,
-  projUni: null,
-  blockCoordOffset: null,
+let pickerUniforms: {
+  modelUni: WebGLUniformLocation;
+  viewUni: WebGLUniformLocation;
+  projUni: WebGLUniformLocation;
+  blockCoordOffset: WebGLUniformLocation;
+} = {
+  modelUni: null as any,
+  viewUni: null as any,
+  projUni: null as any,
+  blockCoordOffset: null as any,
 };
 
-let pickerAttributes = {
-  position: null,
-  blockCoord: null,
+let pickerAttributes: {
+  position: number;
+  blockCoord: number;
+} = {
+  position: null as any,
+  blockCoord: null as any,
 };
 
-let cursorAttributes = {
-  position: null,
+let cursorAttributes: {
+  position: number;
+} = {
+  position: null as any,
 };
 
 let program: WebGLShader;
@@ -475,7 +509,7 @@ function bufferTextures(done: () => void) {
 
 let depthColorTexture;
 let depthBuffer;
-let depthFb;
+let depthFb: WebGLFramebuffer;
 let depthVertexBuffers: WebGLBuffer[];
 
 const sideChunksX = 2;
@@ -488,7 +522,7 @@ function bufferIndex(rcx: number, rcy: number): number {
   return rcx + rcy * (2 * sideChunksX + 1);
 }
 
-let cursorVertexBuffer;
+let cursorVertexBuffer: WebGLBuffer;
 
 function initWebgl(done: () => void) {
   //console.log(gl.getParameter(gl.MAX_VERTEX_ATTRIBS));
@@ -503,20 +537,20 @@ function initWebgl(done: () => void) {
   }
   vertexBuffers = new Array<WebGLBuffer>(nChunks);
   for (let i = 0; i < nChunks; i++) {
-    vertexBuffers[i] = gl.createBuffer();
+    vertexBuffers[i] = gl.createBuffer()!;
   }
   numberOfVertices = new Array<number>(nChunks);
 
-  program = buildShader(vertexShaderSource, fragmentShaderSource);
+  program = buildShader(vertexShaderSource, fragmentShaderSource)!;
   pickerProgram = buildShader(
     pickerVertexShaderSource,
     pickerFragmentShaderSource
-  );
+  )!;
 
   // main shader attributes and uniforms
-  const positionAttr = gl.getAttribLocation(program, "position");
-  const normalAttr = gl.getAttribLocation(program, "normal");
-  const texCoordAttr = gl.getAttribLocation(program, "textureCoord");
+  const positionAttr = gl.getAttribLocation(program, "position")!;
+  const normalAttr = gl.getAttribLocation(program, "normal")!;
+  const texCoordAttr = gl.getAttribLocation(program, "textureCoord")!;
   mainAttributes.position = positionAttr;
   mainAttributes.normal = normalAttr;
   mainAttributes.texCoord = texCoordAttr;
@@ -524,14 +558,14 @@ function initWebgl(done: () => void) {
   gl.enableVertexAttribArray(normalAttr);
   gl.enableVertexAttribArray(texCoordAttr);
 
-  uniformLocs.modelUni = gl.getUniformLocation(program, "model");
-  uniformLocs.viewUni = gl.getUniformLocation(program, "view");
-  uniformLocs.projUni = gl.getUniformLocation(program, "proj");
-  uniformLocs.parallelRayUni = gl.getUniformLocation(program, "parallelRay");
+  uniformLocs.modelUni = gl.getUniformLocation(program, "model")!;
+  uniformLocs.viewUni = gl.getUniformLocation(program, "view")!;
+  uniformLocs.projUni = gl.getUniformLocation(program, "proj")!;
+  uniformLocs.parallelRayUni = gl.getUniformLocation(program, "parallelRay")!;
   uniformLocs.playerPositionInChunk = gl.getUniformLocation(
     program,
     "playerPositionInChunk"
-  );
+  )!;
 
   // framebuffer for depth
   depthColorTexture = gl.createTexture();
@@ -555,7 +589,7 @@ function initWebgl(done: () => void) {
     gl.canvas.width,
     gl.canvas.height
   );
-  depthFb = gl.createFramebuffer();
+  depthFb = gl.createFramebuffer()!;
   gl.bindFramebuffer(gl.FRAMEBUFFER, depthFb);
   gl.framebufferTexture2D(
     gl.FRAMEBUFFER,
@@ -573,7 +607,7 @@ function initWebgl(done: () => void) {
 
   depthVertexBuffers = new Array<WebGLBuffer>(nChunks);
   for (let i = 0; i < nChunks; i++) {
-    depthVertexBuffers[i] = gl.createBuffer();
+    depthVertexBuffers[i] = gl.createBuffer()!;
   }
   lastDepthBlockVerticesNumbers = new Array<number>(nChunks);
 
@@ -586,20 +620,20 @@ function initWebgl(done: () => void) {
   gl.enableVertexAttribArray(pickerAttributes.position);
   gl.enableVertexAttribArray(pickerAttributes.blockCoord);
 
-  pickerUniforms.modelUni = gl.getUniformLocation(pickerProgram, "model");
-  pickerUniforms.viewUni = gl.getUniformLocation(pickerProgram, "view");
-  pickerUniforms.projUni = gl.getUniformLocation(pickerProgram, "proj");
+  pickerUniforms.modelUni = gl.getUniformLocation(pickerProgram, "model")!;
+  pickerUniforms.viewUni = gl.getUniformLocation(pickerProgram, "view")!;
+  pickerUniforms.projUni = gl.getUniformLocation(pickerProgram, "proj")!;
   pickerUniforms.blockCoordOffset = gl.getUniformLocation(
     pickerProgram,
     "blockCoordOffset"
-  );
+  )!;
 
   // cursor rendering
   cursorProgram = buildShader(
     cursorVertexShaderSource,
     cursorFragmentShaderSource
-  );
-  cursorVertexBuffer = gl.createBuffer();
+  )!;
+  cursorVertexBuffer = gl.createBuffer()!;
   gl.bindBuffer(gl.ARRAY_BUFFER, cursorVertexBuffer);
   cursorAttributes.position = gl.getAttribLocation(cursorProgram, "position");
   gl.enableVertexAttribArray(cursorAttributes.position);
@@ -635,7 +669,7 @@ let chunkMovedInfo = {
 
 function nearbyChunkCoords(): Array<[number, number]> {
   const [cx, cy] = chunkCoordOfPlayerPosition();
-  const chunks = [];
+  const chunks: [number, number][] = [];
   for (let i = -sideChunksX; i <= sideChunksX; i++) {
     for (let j = -sideChunksY; j <= sideChunksY; j++) {
       chunks.push([cx + i, cy + j]);
@@ -695,7 +729,7 @@ function checkIsOnLand(): boolean {
   const Z = position[2];
   const [cx, cy] = chunkCoordOfPosition(X, Y);
   const chunk = currentWorld.getLoadedChunk(cx, cy);
-  if (chunk === null) return;
+  if (chunk === null) return false;
   let [rpx, rpy] = relativePositionInChunk(X, Y);
   rpx = Math.floor(rpx * 2);
   rpy = Math.floor(rpy * 2);
@@ -728,7 +762,11 @@ function wallCheck() {
     else if (rpy >= Chunk.SizeY) cy2++;
 
     if (cx !== cx2 || cy !== cy2) {
-      ch = currentWorld.getLoadedChunk(cx2, cy2);
+      const newCh = currentWorld.getLoadedChunk(cx2, cy2);
+      if (newCh === null) {
+        return false;
+      }
+      ch = newCh;
     }
 
     rpx = mod(rpx, Chunk.SizeX);
@@ -1021,7 +1059,7 @@ function relativeIndexInChunk(i: number, j: number): [number, number] {
   return [mod(i, Chunk.SizeX), mod(j, Chunk.SizeY)];
 }
 
-let lastDepthBlockVerticesNumbers: number[] = null;
+let lastDepthBlockVerticesNumbers: number[] = null as any;
 
 function renderDepthBlocks() {
   function appendDepthBlock(
