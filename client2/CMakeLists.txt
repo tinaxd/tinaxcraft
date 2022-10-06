@@ -29,7 +29,8 @@ target_include_directories(tinaxcraft PRIVATE include)
 target_link_libraries(tinaxcraft PRIVATE glfw)
 
 # find_package(glm CONFIG REQUIRED)
-# target_link_libraries(tinaxcraft PRIVATE glm)
+target_link_libraries(tinaxcraft PRIVATE glm)
+
 if(NOT EMSCRIPTEN)
   find_package(OpenGL REQUIRED)
   target_link_libraries(tinaxcraft PRIVATE OpenGL::GL)
