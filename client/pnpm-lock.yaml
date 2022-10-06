@@ -2,7 +2,6 @@ lockfileVersion: 5.4
 
 specifiers:
   '@types/emscripten': ^1.39.6
-  '@types/gl-matrix': ^3.2.0
   copy-webpack-plugin: ^9.1.0
   gl-matrix: ^3.4.3
   noisejs: ^2.1.0
@@ -18,7 +17,6 @@ dependencies:
 
 devDependencies:
   '@types/emscripten': 1.39.6
-  '@types/gl-matrix': 3.2.0
   copy-webpack-plugin: 9.1.0_webpack@5.74.0
   ts-loader: 9.4.1_kb3egcnme7w23lfa5xodfjfhge
   typescript: 4.8.3
@@ -158,13 +156,6 @@ packages:
       '@types/express-serve-static-core': 4.17.31
       '@types/qs': 6.9.7
       '@types/serve-static': 1.15.0
-    dev: true
-
-  /@types/gl-matrix/3.2.0:
-    resolution: {integrity: sha512-CY4JAtSOGQX7rVgqVuOk7ZfaLv8VeadDMPj3smMOy8Hp/YiHONa3Mr0mEUgbo0eEwV7+Owpf6BwspcA7hv4NXg==}
-    deprecated: This is a stub types definition. gl-matrix provides its own type definitions, so you do not need this installed.
-    dependencies:
-      gl-matrix: 3.4.3
     dev: true
 
   /@types/http-proxy/1.17.9:
@@ -1028,6 +1019,7 @@ packages:
 
   /gl-matrix/3.4.3:
     resolution: {integrity: sha512-wcCp8vu8FT22BnvKVPjXa/ICBWRq/zjFfdofZy1WSpQZpphblv12/bOQLBC1rMM7SGOFS9ltVmKOHil5+Ml7gA==}
+    dev: false
 
   /glob-parent/5.1.2:
     resolution: {integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==}
