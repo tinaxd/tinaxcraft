@@ -7,3 +7,6 @@
 [submodule "client2/glm"]
 	path = client2/glm
 	url = https://github.com/g-truc/glm.git
+[submodule "client2/PerlinNoise"]
+	path = client2/PerlinNoise
+	url = https://github.com/Reputeless/PerlinNoise.git

@@ -25,6 +25,8 @@ add_subdirectory(glm)
 
 target_include_directories(tinaxcraft PRIVATE include)
 
+target_include_directories(tinaxcraft PRIVATE PerlinNoise)
+
 # find_package(glfw3 CONFIG REQUIRED)
 target_link_libraries(tinaxcraft PRIVATE glfw)
 
