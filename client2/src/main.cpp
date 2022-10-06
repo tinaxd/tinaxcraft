@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "util.hpp"
+#include "renderer.h"
 
 void drawGL();
 
@@ -40,6 +41,9 @@ int main()
     glfwMakeContextCurrent(window);
     gladLoadGL();
 
+    auto renderer = std::make_unique<tinaxcraft::Renderer>();
+    renderer->initGL();
+
     auto lastTime = getTimeMillis();
     while (!glfwWindowShouldClose(window))
     {
@@ -52,7 +56,7 @@ int main()
         auto dt = static_cast<float>(nowTime - lastTime) / 1000.0;
         lastTime = nowTime;
 
-        tinaxcraft::drawGL();
+        renderer->render();
         glfwSwapBuffers(window);
         glfwPollEvents();
     }

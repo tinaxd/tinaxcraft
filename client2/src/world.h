@@ -31,7 +31,7 @@ namespace tinaxcraft
         ChunkCoord(Type cx, Type cz) : cx(cx), cz(cz) {}
     };
 
-    bool operator==(const ChunkCoord &c1, const ChunkCoord &c2)
+    inline bool operator==(const ChunkCoord &c1, const ChunkCoord &c2)
     {
         return c1.cx == c2.cx && c1.cz == c2.cz;
     }
@@ -45,7 +45,7 @@ namespace tinaxcraft
         CoordInChunk(Type x, Type y, Type z) : x(x), y(y), z(z) {}
     };
 
-    bool operator==(const CoordInChunk &c1, const CoordInChunk &c2)
+    inline bool operator==(const CoordInChunk &c1, const CoordInChunk &c2)
     {
         return c1.x == c2.x && c1.y == c2.y && c1.z == c2.z;
     }
