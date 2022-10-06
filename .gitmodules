@@ -1,3 +1,9 @@
 [submodule "client2/vcpkg"]
 	path = client2/vcpkg
 	url = https://github.com/microsoft/vcpkg
+[submodule "client2/glfw"]
+	path = client2/glfw
+	url = https://github.com/glfw/glfw.git
+[submodule "client2/glm"]
+	path = client2/glm
+	url = https://github.com/g-truc/glm.git
