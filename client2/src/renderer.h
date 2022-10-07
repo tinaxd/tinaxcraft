@@ -42,13 +42,15 @@ namespace tinaxcraft
         void render();
 
     private:
-        GLuint vertexBuffer;
-        GLuint indexBuffer;
+        std::vector<GLuint> vertexBuffers;
+        std::vector<GLuint> indexBuffers;
+        std::vector<uint32_t> indices_counts_;
         GLuint program;
+
+        int render_distance_ = 2;
 
         std::shared_ptr<World> world_;
         std::optional<ChunkCoord> last_chunk_;
-        uint32_t indices_count_ = 0;
 
         void setupUniforms();
 
@@ -60,6 +62,8 @@ namespace tinaxcraft
         using VertexCount = uint32_t;
 
         std::tuple<VertexArray, IndexArray, VertexCount> generateVertexForChunk(const Chunk &chunk);
+
+        size_t getBufferIndex(int dcx, int dcz);
 
         UniformPositions uniformPositions;
     };

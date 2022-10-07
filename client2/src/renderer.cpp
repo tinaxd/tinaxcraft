@@ -322,10 +322,15 @@ void Renderer::initGL()
 
     program = LoadShaders("shaders/block_vertex.glsl", "shaders/block_fragment.glsl");
 
-    glGenBuffers(1, &vertexBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+    const auto numberOfBuffers = (render_distance_ * 2 + 1) * (render_distance_ * 2 + 1);
 
-    glGenBuffers(1, &indexBuffer);
+    vertexBuffers = std::vector<GLuint>(numberOfBuffers);
+    glGenBuffers(numberOfBuffers, vertexBuffers.data());
+
+    indexBuffers = std::vector<GLuint>(numberOfBuffers);
+    glGenBuffers(numberOfBuffers, indexBuffers.data());
+
+    indices_counts_ = std::vector<VertexCount>(numberOfBuffers);
 
     setupUniforms();
 }
@@ -353,18 +358,31 @@ void Renderer::setupUniforms()
 
 void Renderer::bufferVertices()
 {
-    const auto &chunk = world_->loadOrGenerateChunk(ChunkCoord(0, 0));
-    auto [vertices, indices, count] = generateVertexForChunk(*chunk);
-    std::cout << std::endl
-              << "vertices " << vertices.size() << " indices " << indices.size() << " count " << count << std::endl;
+    const auto dist = render_distance_;
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+    const auto cx = 0;
+    const auto cz = 0;
 
-    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+    for (int dcx = -dist; dcx <= dist; dcx++)
+    {
+        for (int dcz = -dist; dcz <= dist; dcz++)
+        {
+            const auto buffer_index = getBufferIndex(dcx, dcz);
 
-    indices_count_ = indices.size();
+            const auto &chunk = world_->loadOrGenerateChunk(ChunkCoord(cx + dcx, cz + dcz));
+            auto [vertices, indices, count] = generateVertexForChunk(*chunk);
+            std::cout << std::endl
+                      << "vertices " << vertices.size() << " indices " << indices.size() << " count " << count << std::endl;
+
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffers.at(buffer_index));
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+
+            glBindBuffer(GL_ARRAY_BUFFER, vertexBuffers.at(buffer_index));
+            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+
+            indices_counts_.at(buffer_index) = indices.size();
+        }
+    }
 }
 
 void Renderer::drawWorld()
@@ -375,19 +393,34 @@ void Renderer::drawWorld()
         last_chunk_ = ChunkCoord(0, 0);
     }
 
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+    const auto dist = render_distance_;
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, nullptr);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *)(sizeof(float) * 3));
+    for (int dcx = -dist; dcx <= dist; dcx++)
+    {
+        for (int dcz = -dist; dcz <= dist; dcz++)
+        {
+            size_t buffer_index = getBufferIndex(dcx, dcz);
 
-    // std::cout << indices_count_ << std::endl;
-    glDrawElements(GL_TRIANGLES, indices_count_, GL_UNSIGNED_INT, nullptr);
+            glEnableVertexAttribArray(0);
+            glEnableVertexAttribArray(1);
 
-    glDisableVertexAttribArray(0);
-    glDisableVertexAttribArray(1);
+            glBindBuffer(GL_ARRAY_BUFFER, vertexBuffers.at(buffer_index));
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffers.at(buffer_index));
+
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, nullptr);
+            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *)(sizeof(float) * 3));
+
+            // translate chunk
+            glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(dcx * Chunk::SizeX, 0, dcz * Chunk::SizeZ));
+            glUniformMatrix4fv(uniformPositions.model, 1, GL_FALSE, glm::value_ptr(model));
+
+            // std::cout << indices_count_ << std::endl;
+            glDrawElements(GL_TRIANGLES, indices_counts_.at(buffer_index), GL_UNSIGNED_INT, nullptr);
+
+            glDisableVertexAttribArray(0);
+            glDisableVertexAttribArray(1);
+        }
+    }
 }
 
 void Renderer::setWorld(std::shared_ptr<World> world)
@@ -402,13 +435,17 @@ void Renderer::render()
 
     glUseProgram(program);
 
-    auto model = glm::mat4(1.0f);
-    auto view = glm::lookAt(glm::vec3(20, 80, 18), glm::vec3(0, 60, 0), glm::vec3(0, 1, 0));
+    auto view = glm::lookAt(glm::vec3(40, 90, 18), glm::vec3(0, 70, 0), glm::vec3(0, 1, 0));
     auto projection = glm::perspective(glm::radians(45.0f), 4.f / 3.f, 0.1f, 100.0f);
 
-    glUniformMatrix4fv(uniformPositions.model, 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(uniformPositions.view, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(uniformPositions.projection, 1, GL_FALSE, glm::value_ptr(projection));
 
     drawWorld();
+}
+
+size_t Renderer::getBufferIndex(int dcx, int dcz)
+{
+    const auto dist = render_distance_;
+    return (dcx + dist) * (dist * 2 + 1) + (dcz + dist);
 }
