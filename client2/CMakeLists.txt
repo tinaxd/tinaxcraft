@@ -13,19 +13,23 @@ endif()
 file(GLOB TC_CPP src/*.cpp)
 file(GLOB TC_HPP src/*.hpp)
 
-add_custom_target(copy-files
-  COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/copy-files.cmake
-)
-
 add_executable(tinaxcraft ${TC_CPP} ${TC_HPP} gladsrc/glad.c)
 
 set(CMAKE_CXX_FLAGS_DEBUG "-g3")
 
 if(EMSCRIPTEN)
-  set(CMAKE_EXE_LINKER_FLAGS "-s USE_GLFW=3 -s WASM=1 -s USE_WEBGL2=1 -s FULL_ES2=1")
+  set(CMAKE_EXE_LINKER_FLAGS "-s USE_GLFW=3 -s WASM=1 -s USE_WEBGL2=1 -s FULL_ES2=1 -sALLOW_MEMORY_GROWTH --preload-file ${CMAKE_CURRENT_BINARY_DIR}/shaders@/shaders")
+  add_custom_target(copy-files
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/copy-files-emscripten.cmake
+    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/shaders_web
+  )
 else()
   add_subdirectory(glfw)
   add_dependencies(tinaxcraft glfw)
+  add_custom_target(copy-files
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/copy-files.cmake
+    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/shaders
+  )
 endif()
 
 add_subdirectory(glm)

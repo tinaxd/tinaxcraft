@@ -14,6 +14,10 @@
 #include "world.h"
 #include "worldgen.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
+
 void drawGL();
 
 namespace tinaxcraft
@@ -29,6 +33,26 @@ namespace tinaxcraft
 
 using namespace tinaxcraft;
 
+static int64_t lastTime = 0;
+static std::unique_ptr<Renderer> renderer;
+static GLFWwindow *window = nullptr;
+
+void mainloop()
+{
+    // do opengl stuff
+    const auto nowTime = getTimeMillis();
+    if (lastTime == nowTime)
+    {
+        return;
+    }
+    auto dt = static_cast<float>(nowTime - lastTime) / 1000.0;
+    lastTime = nowTime;
+
+    renderer->render();
+    glfwSwapBuffers(window);
+    glfwPollEvents();
+}
+
 int main()
 {
     if (!glfwInit())
@@ -41,7 +65,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    auto *window = glfwCreateWindow(1280, 960, "tinaxcraft", nullptr, nullptr);
+    window = glfwCreateWindow(1280, 960, "tinaxcraft", nullptr, nullptr);
     if (!window)
     {
         panic("failed to glfwCreateWindow");
@@ -55,26 +79,19 @@ int main()
     auto worldGen = std::make_unique<PerlinNoiseWorldGen>(0);
     auto world = std::make_shared<World>(std::move(worldGen));
 
-    auto renderer = std::make_unique<Renderer>();
+    renderer = std::make_unique<Renderer>();
     renderer->initGL();
     renderer->setWorld(world);
 
     auto lastTime = getTimeMillis();
+
+#if __EMSCRIPTEN__
+    emscripten_set_main_loop(mainloop, 0, 1);
+#else
     while (!glfwWindowShouldClose(window))
     {
-        // do opengl stuff
-        const auto nowTime = getTimeMillis();
-        if (lastTime == nowTime)
-        {
-            continue;
-        }
-        auto dt = static_cast<float>(nowTime - lastTime) / 1000.0;
-        lastTime = nowTime;
-
-        renderer->render();
-        glfwSwapBuffers(window);
-        glfwPollEvents();
     }
+#endif
 
     return 0;
 }
