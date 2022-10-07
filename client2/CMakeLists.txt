@@ -22,19 +22,19 @@ add_executable(tinaxcraft ${TC_CPP} ${TC_HPP} gladsrc/glad.c)
 set(CMAKE_CXX_FLAGS_DEBUG "-g3")
 
 if(EMSCRIPTEN)
-  set(CMAKE_EXE_LINKER_FLAGS "-s USE_GLFW=3")
+  set(CMAKE_EXE_LINKER_FLAGS "-s USE_GLFW=3 -s WASM=1 -s USE_WEBGL2=1 -s FULL_ES2=1")
 else()
   add_subdirectory(glfw)
+  add_dependencies(tinaxcraft glfw)
 endif()
 
 add_subdirectory(glm)
 
 target_include_directories(tinaxcraft PRIVATE include)
-
 target_include_directories(tinaxcraft PRIVATE PerlinNoise)
 target_include_directories(tinaxcraft PRIVATE glm/glm)
 
-add_dependencies(tinaxcraft glfw glm copy-files)
+add_dependencies(tinaxcraft glm copy-files)
 
 # find_package(glfw3 CONFIG REQUIRED)
 target_link_libraries(tinaxcraft PRIVATE glfw)

@@ -1,5 +1,10 @@
+#ifdef __EMSCRIPTEN__
+#include <GL/gl.h>
+#define GLFW_INCLUDE_ES3
+#else
 #include <glad/glad.h>
 #define GLFW_INCLUDE_NONE
+#endif
 #include <GLFW/glfw3.h>
 
 #include <iostream>
@@ -43,7 +48,9 @@ int main()
     }
 
     glfwMakeContextCurrent(window);
+#ifndef __EMSCRIPTEN__
     gladLoadGL();
+#endif
 
     auto worldGen = std::make_unique<PerlinNoiseWorldGen>(0);
     auto world = std::make_shared<World>(std::move(worldGen));

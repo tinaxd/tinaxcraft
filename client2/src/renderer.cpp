@@ -1,5 +1,4 @@
 #include "./renderer.h"
-#include <glad/glad.h>
 
 #include <string>
 #include <fstream>
@@ -60,7 +59,7 @@ LoadShaders(const std::string &vertex_file_path, const std::string &fragment_fil
     int InfoLogLength;
 
     // 頂点シェーダをコンパイルします。
-    printf("Compiling shader : %sn", vertex_file_path);
+    std::cout << "Compiling shader: " << vertex_file_path << std::endl;
     char const *VertexSourcePointer = VertexShaderCode.c_str();
     glShaderSource(VertexShaderID, 1, &VertexSourcePointer, NULL);
     glCompileShader(VertexShaderID);
@@ -70,10 +69,18 @@ LoadShaders(const std::string &vertex_file_path, const std::string &fragment_fil
     glGetShaderiv(VertexShaderID, GL_INFO_LOG_LENGTH, &InfoLogLength);
     std::vector<char> VertexShaderErrorMessage(InfoLogLength);
     glGetShaderInfoLog(VertexShaderID, InfoLogLength, NULL, &VertexShaderErrorMessage[0]);
-    fprintf(stdout, "%sn", &VertexShaderErrorMessage[0]);
+    auto printVector = [](const std::vector<char> &vec)
+    {
+        for (const auto c : vec)
+        {
+            std::cout << c;
+        }
+        std::cout << std::endl;
+    };
+    printVector(VertexShaderErrorMessage);
 
     // フラグメントシェーダをコンパイルします。
-    printf("Compiling shader : %sn", fragment_file_path);
+    std::cout << "Compiling shader : " << fragment_file_path << std::endl;
     char const *FragmentSourcePointer = FragmentShaderCode.c_str();
     glShaderSource(FragmentShaderID, 1, &FragmentSourcePointer, NULL);
     glCompileShader(FragmentShaderID);
@@ -83,7 +90,7 @@ LoadShaders(const std::string &vertex_file_path, const std::string &fragment_fil
     glGetShaderiv(FragmentShaderID, GL_INFO_LOG_LENGTH, &InfoLogLength);
     std::vector<char> FragmentShaderErrorMessage(InfoLogLength);
     glGetShaderInfoLog(FragmentShaderID, InfoLogLength, NULL, &FragmentShaderErrorMessage[0]);
-    fprintf(stdout, "%sn", &FragmentShaderErrorMessage[0]);
+    printVector(FragmentShaderErrorMessage);
 
     // プログラムをリンクします。
     fprintf(stdout, "Linking programn");
@@ -97,7 +104,7 @@ LoadShaders(const std::string &vertex_file_path, const std::string &fragment_fil
     glGetProgramiv(ProgramID, GL_INFO_LOG_LENGTH, &InfoLogLength);
     std::vector<char> ProgramErrorMessage(std::max(InfoLogLength, int(1)));
     glGetProgramInfoLog(ProgramID, InfoLogLength, NULL, &ProgramErrorMessage[0]);
-    fprintf(stdout, "%sn", &ProgramErrorMessage[0]);
+    printVector(ProgramErrorMessage);
 
     glDeleteShader(VertexShaderID);
     glDeleteShader(FragmentShaderID);
