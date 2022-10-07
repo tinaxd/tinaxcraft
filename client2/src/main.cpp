@@ -90,6 +90,7 @@ int main()
 #else
     while (!glfwWindowShouldClose(window))
     {
+        mainloop();
     }
 #endif
 
