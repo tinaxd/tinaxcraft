@@ -1,4 +1,5 @@
 #include "manager.h"
+#include <iostream>
 
 using namespace tinaxcraft;
 
@@ -23,6 +24,20 @@ void GameManager::key_update(Key key, bool pressed)
     else
     {
         pressed_keys_ &= ~static_cast<uint32_t>(key);
+    }
+}
+
+void GameManager::mouse_click(bool isPrimaryButton, bool isPressed)
+{
+    std::cout << "mouse click: " << isPrimaryButton << ", " << isPressed << std::endl;
+    std::cout << "at " << current_cursorX << ", " << current_cursorY << std::endl;
+
+    if (coord_getter_)
+    {
+    }
+    else
+    {
+        std::cerr << "coord_getter_ is not set" << std::endl;
     }
 }
 

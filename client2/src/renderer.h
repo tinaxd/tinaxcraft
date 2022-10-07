@@ -36,6 +36,7 @@ namespace tinaxcraft
     class Renderer
     {
     public:
+        ~Renderer();
         void initGL();
         void setGameManager(std::shared_ptr<GameManager> manager);
 
@@ -56,6 +57,8 @@ namespace tinaxcraft
 
         void drawWorld();
         void bufferVertices();
+
+        void getBlockCoordFromScreenPos(double xpos, double ypos);
 
         using VertexArray = std::vector<float>;
         using IndexArray = std::vector<uint32_t>;

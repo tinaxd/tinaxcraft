@@ -36,6 +36,13 @@ namespace tinaxcraft
         Jump = 1 << 4
     };
 
+    class GameManager;
+
+    struct BlockCoordGetter
+    {
+        virtual GlobalBlockCoord getCoordFromScreen(const GameManager &mgr, double xpos, double ypos) = 0;
+    };
+
     class GameManager
     {
     public:
@@ -47,8 +54,25 @@ namespace tinaxcraft
 
         void key_update(Key key, bool pressed);
         void cursor_update(float xpos, float ypos);
+        void mouse_click(bool isPrimaryButton, bool isPressed);
 
         void step(float dt);
+
+        void setScreenSize(int width, int height)
+        {
+            screen_width_ = width;
+            screen_height_ = height;
+        }
+
+        std::tuple<int, int> getScreenSize() const
+        {
+            return std::make_tuple(screen_width_, screen_height_);
+        }
+
+        inline void setBlockCoordGetter(std::unique_ptr<BlockCoordGetter> getter)
+        {
+            coord_getter_ = std::move(getter);
+        }
 
     private:
         std::unique_ptr<Player> player_;
@@ -63,5 +87,10 @@ namespace tinaxcraft
         float last_cursorY = 0;
         float current_cursorX = 0;
         float current_cursorY = 0;
+
+        int screen_width_ = 0;
+        int screen_height_ = 0;
+
+        std::unique_ptr<BlockCoordGetter> coord_getter_;
     };
 } // namespace tinaxcraf

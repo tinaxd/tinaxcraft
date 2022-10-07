@@ -78,6 +78,15 @@ namespace tinaxcraft
 
     class WorldGen;
 
+    struct GlobalBlockCoord
+    {
+        using Type = int32_t;
+        Type x;
+        Type y;
+        Type z;
+        GlobalBlockCoord(Type x, Type y, Type z) : x(x), y(y), z(z) {}
+    };
+
     class World
     {
     public:

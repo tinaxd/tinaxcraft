@@ -312,6 +312,14 @@ std::tuple<VertexArray, IndexArray, VertexCount> Renderer::generateVertexForChun
     return std::make_tuple(vertices, indices, count);
 }
 
+Renderer::~Renderer()
+{
+    if (manager_)
+    {
+        manager_->setBlockCoordGetter(nullptr);
+    }
+}
+
 void Renderer::initGL()
 {
     glEnable(GL_DEPTH_TEST);

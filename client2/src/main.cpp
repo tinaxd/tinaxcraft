@@ -92,6 +92,11 @@ void cursor_position_callback(GLFWwindow *window, double xpos, double ypos)
     mgr->cursor_update(xpos, ypos);
 }
 
+void mouse_button_callback(GLFWwindow *window, int button, int action, int mods)
+{
+    mgr->mouse_click(button == GLFW_MOUSE_BUTTON_LEFT, action == GLFW_PRESS);
+}
+
 int main()
 {
     if (!glfwInit())
@@ -119,6 +124,7 @@ int main()
     auto world = std::make_shared<World>(std::move(worldGen));
 
     mgr = std::make_shared<GameManager>(world);
+    mgr->setScreenSize(1280, 960);
 
     renderer = std::make_unique<Renderer>();
     renderer->initGL();
@@ -128,6 +134,7 @@ int main()
 
     glfwSetKeyCallback(window, key_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
