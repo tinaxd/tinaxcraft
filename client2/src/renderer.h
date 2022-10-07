@@ -3,6 +3,8 @@
 #include <cstdint>
 #include "world.h"
 #include <glad/glad.h>
+#include <memory>
+#include <optional>
 
 namespace tinaxcraft
 {
@@ -30,6 +32,7 @@ namespace tinaxcraft
     {
     public:
         void initGL();
+        void setWorld(std::shared_ptr<World> world);
 
         void render();
 
@@ -38,8 +41,13 @@ namespace tinaxcraft
         GLuint indexBuffer;
         GLuint program;
 
+        std::shared_ptr<World> world_;
+        std::optional<ChunkCoord> last_chunk_;
+        uint32_t indices_count_ = 0;
+
         void setupUniforms();
 
+        void drawWorld();
         void bufferVertices();
 
         using VertexArray = std::vector<float>;

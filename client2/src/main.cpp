@@ -6,6 +6,8 @@
 
 #include "util.hpp"
 #include "renderer.h"
+#include "world.h"
+#include "worldgen.h"
 
 void drawGL();
 
@@ -20,6 +22,8 @@ namespace tinaxcraft
     }
 }
 
+using namespace tinaxcraft;
+
 int main()
 {
     if (!glfwInit())
@@ -32,7 +36,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    auto *window = glfwCreateWindow(640, 480, "tinaxcraft", nullptr, nullptr);
+    auto *window = glfwCreateWindow(1280, 960, "tinaxcraft", nullptr, nullptr);
     if (!window)
     {
         panic("failed to glfwCreateWindow");
@@ -41,8 +45,12 @@ int main()
     glfwMakeContextCurrent(window);
     gladLoadGL();
 
-    auto renderer = std::make_unique<tinaxcraft::Renderer>();
+    auto worldGen = std::make_unique<PerlinNoiseWorldGen>(0);
+    auto world = std::make_shared<World>(std::move(worldGen));
+
+    auto renderer = std::make_unique<Renderer>();
     renderer->initGL();
+    renderer->setWorld(world);
 
     auto lastTime = getTimeMillis();
     while (!glfwWindowShouldClose(window))

@@ -8,6 +8,7 @@
 #include <tuple>
 #include <stdexcept>
 #include <array>
+#include <iostream>
 
 #include <glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -110,6 +111,7 @@ using VertexCount = uint32_t;
 
 std::tuple<VertexArray, IndexArray, VertexCount> generateVertexForBlock(int32_t x, int32_t y, int32_t z, uint32_t faces)
 {
+    // std::cout << "block " << x << " " << y << " " << z << " " << faces << std::endl;
     VertexArray vertices;
     IndexArray indices;
 
@@ -253,7 +255,7 @@ std::tuple<VertexArray, IndexArray, VertexCount> Renderer::generateVertexForChun
                     continue;
                 }
 
-                uint32_t faces = 0;
+                uint32_t faces = ALL_FACES;
                 if (!exists(x - 1, y, z))
                 {
                     faces |= XNEGF;
@@ -287,13 +289,18 @@ std::tuple<VertexArray, IndexArray, VertexCount> Renderer::generateVertexForChun
                 auto [v, i, c] = generateVertexForBlock(x, y, z, faces);
                 for (auto index : i)
                 {
-                    indices.push_back(c + index);
+                    indices.push_back(count + index);
                 }
                 vertices.insert(vertices.end(), v.begin(), v.end());
                 count += c;
             }
         }
     }
+
+    // for (const auto i : indices)
+    // {
+    //     std::cout << i << std::endl;
+    // }
 
     return std::make_tuple(vertices, indices, count);
 }
@@ -339,7 +346,10 @@ void Renderer::setupUniforms()
 
 void Renderer::bufferVertices()
 {
-    auto [vertices, indices, count] = generateVertexForBlock(0, 0, 0, ALL_FACES);
+    const auto &chunk = world_->loadOrGenerateChunk(ChunkCoord(0, 0));
+    auto [vertices, indices, count] = generateVertexForChunk(*chunk);
+    std::cout << std::endl
+              << "vertices " << vertices.size() << " indices " << indices.size() << " count " << count << std::endl;
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
@@ -347,17 +357,36 @@ void Renderer::bufferVertices()
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
+    indices_count_ = indices.size();
+}
+
+void Renderer::drawWorld()
+{
+    if (!last_chunk_.has_value() || last_chunk_.value() != ChunkCoord(0, 0))
+    {
+        bufferVertices();
+        last_chunk_ = ChunkCoord(0, 0);
+    }
+
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, nullptr);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *)(sizeof(float) * 3));
 
-    glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
+    // std::cout << indices_count_ << std::endl;
+    glDrawElements(GL_TRIANGLES, indices_count_, GL_UNSIGNED_INT, nullptr);
 
     glDisableVertexAttribArray(0);
     glDisableVertexAttribArray(1);
+}
+
+void Renderer::setWorld(std::shared_ptr<World> world)
+{
+    world_ = world;
+    last_chunk_ = {};
 }
 
 void Renderer::render()
@@ -367,12 +396,12 @@ void Renderer::render()
     glUseProgram(program);
 
     auto model = glm::mat4(1.0f);
-    auto view = glm::lookAt(glm::vec3(2, 3, 4), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-    auto projection = glm::perspective(glm::radians(45.0f), 16.f / 9.f, 0.1f, 100.0f);
+    auto view = glm::lookAt(glm::vec3(20, 80, 18), glm::vec3(0, 60, 0), glm::vec3(0, 1, 0));
+    auto projection = glm::perspective(glm::radians(45.0f), 4.f / 3.f, 0.1f, 100.0f);
 
     glUniformMatrix4fv(uniformPositions.model, 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(uniformPositions.view, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(uniformPositions.projection, 1, GL_FALSE, glm::value_ptr(projection));
 
-    bufferVertices();
+    drawWorld();
 }

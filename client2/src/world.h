@@ -36,6 +36,11 @@ namespace tinaxcraft
         return c1.cx == c2.cx && c1.cz == c2.cz;
     }
 
+    inline bool operator!=(const ChunkCoord &c1, const ChunkCoord &c2)
+    {
+        return !(c1 == c2);
+    }
+
     struct CoordInChunk
     {
         using Type = int32_t;
