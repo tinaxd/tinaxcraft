@@ -9,8 +9,14 @@ endif()
 
 # set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake"
 # CACHE STRING "Vcpkg toolchain file")
+# source files
 file(GLOB TC_CPP src/*.cpp)
 file(GLOB TC_HPP src/*.hpp)
+file(GLOB TC_SHADERS shaders/*.glsl)
+
+# copy shaders
+file(COPY ${TC_SHADERS} DESTINATION ${CMAKE_BINARY_DIR}/shaders)
+
 add_executable(tinaxcraft ${TC_CPP} ${TC_HPP} gladsrc/glad.c)
 
 set(CMAKE_CXX_FLAGS_DEBUG "-g3")
