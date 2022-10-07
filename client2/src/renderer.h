@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include "world.h"
+#include "manager.h"
 #ifdef __EMSCRIPTEN__
 #define GLFW_INCLUDE_ES3
 #include <GLFW/glfw3.h>
@@ -37,7 +37,7 @@ namespace tinaxcraft
     {
     public:
         void initGL();
-        void setWorld(std::shared_ptr<World> world);
+        void setGameManager(std::shared_ptr<GameManager> manager);
 
         void render();
 
@@ -49,7 +49,7 @@ namespace tinaxcraft
 
         int render_distance_ = 2;
 
-        std::shared_ptr<World> world_;
+        std::shared_ptr<GameManager> manager_;
         std::optional<ChunkCoord> last_chunk_;
 
         void setupUniforms();

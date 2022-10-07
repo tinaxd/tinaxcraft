@@ -13,6 +13,7 @@
 #include "renderer.h"
 #include "world.h"
 #include "worldgen.h"
+#include "manager.h"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
@@ -79,9 +80,11 @@ int main()
     auto worldGen = std::make_unique<PerlinNoiseWorldGen>(0);
     auto world = std::make_shared<World>(std::move(worldGen));
 
+    auto mgr = std::make_shared<GameManager>(world);
+
     renderer = std::make_unique<Renderer>();
     renderer->initGL();
-    renderer->setWorld(world);
+    renderer->setGameManager(mgr);
 
     auto lastTime = getTimeMillis();
 
