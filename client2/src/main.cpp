@@ -37,6 +37,7 @@ using namespace tinaxcraft;
 static int64_t lastTime = 0;
 static std::unique_ptr<Renderer> renderer;
 static GLFWwindow *window = nullptr;
+static std::shared_ptr<GameManager> mgr;
 
 void mainloop()
 {
@@ -49,9 +50,41 @@ void mainloop()
     auto dt = static_cast<float>(nowTime - lastTime) / 1000.0;
     lastTime = nowTime;
 
+    mgr->step(dt);
+
     renderer->render();
     glfwSwapBuffers(window);
     glfwPollEvents();
+}
+
+void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+    if (action == GLFW_REPEAT)
+        return;
+
+    auto callback = [action](Key k)
+    {
+        mgr->key_update(k, action == GLFW_PRESS);
+    };
+
+    switch (key)
+    {
+    case GLFW_KEY_W:
+        callback(Key::Forward);
+        break;
+    case GLFW_KEY_S:
+        callback(Key::Backward);
+        break;
+    case GLFW_KEY_A:
+        callback(Key::Left);
+        break;
+    case GLFW_KEY_D:
+        callback(Key::Right);
+        break;
+    case GLFW_KEY_SPACE:
+        callback(Key::Jump);
+        break;
+    }
 }
 
 int main()
@@ -80,13 +113,15 @@ int main()
     auto worldGen = std::make_unique<PerlinNoiseWorldGen>(0);
     auto world = std::make_shared<World>(std::move(worldGen));
 
-    auto mgr = std::make_shared<GameManager>(world);
+    mgr = std::make_shared<GameManager>(world);
 
     renderer = std::make_unique<Renderer>();
     renderer->initGL();
     renderer->setGameManager(mgr);
 
     auto lastTime = getTimeMillis();
+
+    glfwSetKeyCallback(window, key_callback);
 
 #if __EMSCRIPTEN__
     emscripten_set_main_loop(mainloop, 0, 1);

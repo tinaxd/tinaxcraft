@@ -6,6 +6,8 @@
 
 namespace tinaxcraft
 {
+    class GameManager;
+
     class Player
     {
     public:
@@ -19,6 +21,17 @@ namespace tinaxcraft
         glm::vec3 position_;
         float rotX_;
         float rotY_;
+
+        friend GameManager;
+    };
+
+    enum class Key : uint32_t
+    {
+        Forward = 1 << 0,
+        Backward = 1 << 1,
+        Right = 1 << 2,
+        Left = 1 << 3,
+        Jump = 1 << 4
     };
 
     class GameManager
@@ -30,8 +43,16 @@ namespace tinaxcraft
         const World &world_view() const { return *world_; }
         World &world() { return *world_; }
 
+        void key_update(Key key, bool pressed);
+
+        void step(float dt);
+
     private:
         std::unique_ptr<Player> player_;
         std::shared_ptr<World> world_;
+
+        void step_player(float dt);
+
+        uint32_t pressed_keys_ = 0;
     };
 } // namespace tinaxcraf
