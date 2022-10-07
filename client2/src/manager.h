@@ -17,6 +17,8 @@ namespace tinaxcraft
         float rotX() const { return rotX_; }
         float rotY() const { return rotY_; }
 
+        glm::vec3 lookAtVec() const;
+
     private:
         glm::vec3 position_;
         float rotX_;
@@ -44,6 +46,7 @@ namespace tinaxcraft
         World &world() { return *world_; }
 
         void key_update(Key key, bool pressed);
+        void cursor_update(float xpos, float ypos);
 
         void step(float dt);
 
@@ -52,7 +55,13 @@ namespace tinaxcraft
         std::shared_ptr<World> world_;
 
         void step_player(float dt);
+        void step_cursor(float dt);
 
         uint32_t pressed_keys_ = 0;
+
+        float last_cursorX = 0;
+        float last_cursorY = 0;
+        float current_cursorX = 0;
+        float current_cursorY = 0;
     };
 } // namespace tinaxcraf

@@ -87,6 +87,11 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     }
 }
 
+void cursor_position_callback(GLFWwindow *window, double xpos, double ypos)
+{
+    mgr->cursor_update(xpos, ypos);
+}
+
 int main()
 {
     if (!glfwInit())
@@ -122,6 +127,9 @@ int main()
     auto lastTime = getTimeMillis();
 
     glfwSetKeyCallback(window, key_callback);
+    glfwSetCursorPosCallback(window, cursor_position_callback);
+
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 #if __EMSCRIPTEN__
     emscripten_set_main_loop(mainloop, 0, 1);

@@ -440,8 +440,10 @@ void Renderer::render()
 
     auto offset = glm::vec3(0.f, 0.f, 0.f);
     const auto eye = player.position() - offset;
+    const auto &lookDir = player.lookAtVec();
+    const auto &lookAtVec = eye + lookDir;
 
-    auto view = glm::lookAt(eye, glm::vec3(0, 70, 0), glm::vec3(0, 1, 0));
+    auto view = glm::lookAt(eye, lookAtVec, glm::vec3(0, 1, 0));
     auto projection = glm::perspective(glm::radians(45.0f), 4.f / 3.f, 0.1f, 100.0f);
 
     glUniformMatrix4fv(uniformPositions.view, 1, GL_FALSE, glm::value_ptr(view));

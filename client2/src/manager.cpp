@@ -4,7 +4,16 @@ using namespace tinaxcraft;
 
 Player::Player() : position_(23.f, 80.f, 28.f), rotX_(0.0f), rotY_(0.0f) {}
 
+glm::vec3 Player::lookAtVec() const
+{
+    return glm::vec3(
+        cos(rotY_) * sin(rotX_),
+        sin(rotY_),
+        cos(rotY_) * cos(rotX_));
+}
+
 GameManager::GameManager(std::shared_ptr<World> world) : player_(std::make_unique<Player>()), world_(std::move(world)) {}
+
 void GameManager::key_update(Key key, bool pressed)
 {
     if (pressed)
@@ -17,9 +26,16 @@ void GameManager::key_update(Key key, bool pressed)
     }
 }
 
+void GameManager::cursor_update(float xpos, float ypos)
+{
+    current_cursorX = xpos;
+    current_cursorY = ypos;
+}
+
 void GameManager::step(float dt)
 {
     step_player(dt);
+    step_cursor(dt);
 }
 
 void GameManager::step_player(float dt)
@@ -58,6 +74,26 @@ void GameManager::step_player(float dt)
     forward *= velocity * dt;
     right *= velocity * dt;
 
-    player_->position_.z += forward;
-    player_->position_.x += right;
+    auto lookAtVec = player_->lookAtVec();
+    lookAtVec.y = 0;
+    lookAtVec = glm::normalize(lookAtVec);
+
+    player_->position_.x += forward * lookAtVec.x;
+    player_->position_.z += forward * lookAtVec.z;
+
+    player_->position_.x -= right * lookAtVec.z;
+    player_->position_.z += right * lookAtVec.x;
+}
+
+void GameManager::step_cursor(float dt)
+{
+    const auto cx = current_cursorX - last_cursorX;
+    const auto cy = current_cursorY - last_cursorY;
+
+    const auto sensitivity = 0.1f;
+    player_->rotX_ -= sensitivity * dt * cx;
+    player_->rotY_ -= sensitivity * dt * cy;
+
+    last_cursorX = current_cursorX;
+    last_cursorY = current_cursorY;
 }
