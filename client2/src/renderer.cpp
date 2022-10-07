@@ -6,11 +6,27 @@
 #include <sstream>
 #include <vector>
 #include <tuple>
+#include <stdexcept>
+#include <array>
+
+#include <glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 using namespace tinaxcraft;
 
+struct ShaderException : std::exception
+{
+    std::string message;
+    ShaderException(const std::string &msg) : message(msg) {}
+    const char *what() const noexcept override
+    {
+        return message.c_str();
+    }
+};
+
 // from http://www.opengl-tutorial.org/jp/beginners-tutorials/tutorial-2-the-first-triangle/#%E3%81%99%E3%81%B9%E3%81%A6%E3%82%92%E5%90%88%E3%82%8F%E3%81%9B%E3%82%8B
-static GLuint LoadShaders(const std::string &vertex_file_path, const std::string &fragment_file_path)
+static GLuint
+LoadShaders(const std::string &vertex_file_path, const std::string &fragment_file_path)
 {
 
     // シェーダを作ります。
@@ -98,11 +114,39 @@ std::tuple<VertexArray, IndexArray, VertexCount> generateVertexForBlock(int32_t 
     IndexArray indices;
 
     VertexCount added = 0;
-    auto v = [&vertices, &added, x, y, z](int x_, int y_, int z_)
+    auto v = [&vertices, &added, x, y, z](int x_, int y_, int z_, uint32_t normal_face)
     {
         vertices.push_back(x + x_);
         vertices.push_back(y + y_);
         vertices.push_back(z + z_);
+
+        std::array<float, 3> normal;
+        switch (normal_face)
+        {
+        case XNEGF:
+            normal = {-1, 0, 0};
+            break;
+        case XPOSF:
+            normal = {1, 0, 0};
+            break;
+        case YNEGF:
+            normal = {0, -1, 0};
+            break;
+        case YPOSF:
+            normal = {0, 1, 0};
+            break;
+        case ZNEGF:
+            normal = {0, 0, -1};
+            break;
+        case ZPOSF:
+            normal = {0, 0, 1};
+            break;
+        }
+
+        vertices.push_back(normal[0]);
+        vertices.push_back(normal[1]);
+        vertices.push_back(normal[2]);
+
         added++;
     };
 
@@ -125,55 +169,55 @@ std::tuple<VertexArray, IndexArray, VertexCount> generateVertexForBlock(int32_t 
 
     if (faces & XNEGF)
     {
-        v(0, 1, 1);
-        v(0, 1, 0);
-        v(0, 0, 0);
-        v(0, 0, 1);
+        v(0, 1, 1, XNEGF);
+        v(0, 1, 0, XNEGF);
+        v(0, 0, 0, XNEGF);
+        v(0, 0, 1, XNEGF);
         addIndex();
     }
 
     if (faces & XPOSF)
     {
-        v(1, 0, 1);
-        v(1, 0, 0);
-        v(1, 1, 0);
-        v(1, 1, 1);
+        v(1, 0, 1, XPOSF);
+        v(1, 0, 0, XPOSF);
+        v(1, 1, 0, XPOSF);
+        v(1, 1, 1, XPOSF);
         addIndex();
     }
 
     if (faces & YNEGF)
     {
-        v(0, 0, 1);
-        v(0, 0, 0);
-        v(1, 0, 0);
-        v(1, 0, 1);
+        v(0, 0, 1, YNEGF);
+        v(0, 0, 0, YNEGF);
+        v(1, 0, 0, YNEGF);
+        v(1, 0, 1, YNEGF);
         addIndex();
     }
 
     if (faces & YPOSF)
     {
-        v(1, 1, 1);
-        v(1, 1, 0);
-        v(0, 1, 0);
-        v(0, 1, 1);
+        v(1, 1, 1, YPOSF);
+        v(1, 1, 0, YPOSF);
+        v(0, 1, 0, YPOSF);
+        v(0, 1, 1, YPOSF);
         addIndex();
     }
 
     if (faces & ZNEGF)
     {
-        v(0, 0, 0);
-        v(0, 1, 0);
-        v(1, 1, 0);
-        v(1, 0, 0);
+        v(0, 0, 0, ZNEGF);
+        v(0, 1, 0, ZNEGF);
+        v(1, 1, 0, ZNEGF);
+        v(1, 0, 0, ZNEGF);
         addIndex();
     }
 
     if (faces & ZPOSF)
     {
-        v(0, 1, 1);
-        v(0, 0, 1);
-        v(1, 0, 1);
-        v(1, 1, 1);
+        v(0, 1, 1, ZPOSF);
+        v(0, 0, 1, ZPOSF);
+        v(1, 0, 1, ZPOSF);
+        v(1, 1, 1, ZPOSF);
         addIndex();
     }
 
@@ -256,6 +300,8 @@ std::tuple<VertexArray, IndexArray, VertexCount> Renderer::generateVertexForChun
 
 void Renderer::initGL()
 {
+    glEnable(GL_DEPTH_TEST);
+
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
@@ -264,21 +310,54 @@ void Renderer::initGL()
 
     glGenBuffers(1, &vertexBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+
+    glGenBuffers(1, &indexBuffer);
+
+    setupUniforms();
+}
+
+void Renderer::setupUniforms()
+{
+    const auto &program = this->program;
+    glUseProgram(program);
+
+    auto mustGetUniform = [&program](const std::string &name)
+    {
+        auto location = glGetUniformLocation(program, name.c_str());
+        if (location == -1)
+        {
+            throw ShaderException("uniform " + name + " not found");
+        }
+        return location;
+    };
+
+    // Get a handle for our "MVP" uniform
+    uniformPositions.model = mustGetUniform("model");
+    uniformPositions.view = mustGetUniform("view");
+    uniformPositions.projection = mustGetUniform("projection");
 }
 
 void Renderer::bufferVertices()
 {
     auto [vertices, indices, count] = generateVertexForBlock(0, 0, 0, ALL_FACES);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
-    glDrawArrays(GL_TRIANGLES, 0, count);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, nullptr);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *)(sizeof(float) * 3));
+
+    glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
 
     glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
 }
 
 void Renderer::render()
@@ -286,5 +365,14 @@ void Renderer::render()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glUseProgram(program);
+
+    auto model = glm::mat4(1.0f);
+    auto view = glm::lookAt(glm::vec3(2, 3, 4), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+    auto projection = glm::perspective(glm::radians(45.0f), 16.f / 9.f, 0.1f, 100.0f);
+
+    glUniformMatrix4fv(uniformPositions.model, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(uniformPositions.view, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(uniformPositions.projection, 1, GL_FALSE, glm::value_ptr(projection));
+
     bufferVertices();
 }

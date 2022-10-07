@@ -19,6 +19,13 @@ namespace tinaxcraft
 
     class VertexBuffer;
 
+    struct UniformPositions
+    {
+        GLint model;
+        GLint view;
+        GLint projection;
+    };
+
     class Renderer
     {
     public:
@@ -28,7 +35,10 @@ namespace tinaxcraft
 
     private:
         GLuint vertexBuffer;
+        GLuint indexBuffer;
         GLuint program;
+
+        void setupUniforms();
 
         void bufferVertices();
 
@@ -37,5 +47,7 @@ namespace tinaxcraft
         using VertexCount = uint32_t;
 
         std::tuple<VertexArray, IndexArray, VertexCount> generateVertexForChunk(const Chunk &chunk);
+
+        UniformPositions uniformPositions;
     };
 }

@@ -12,10 +12,10 @@ endif()
 # source files
 file(GLOB TC_CPP src/*.cpp)
 file(GLOB TC_HPP src/*.hpp)
-file(GLOB TC_SHADERS shaders/*.glsl)
 
-# copy shaders
-file(COPY ${TC_SHADERS} DESTINATION ${CMAKE_BINARY_DIR}/shaders)
+add_custom_target(copy-files
+  COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/copy-files.cmake
+)
 
 add_executable(tinaxcraft ${TC_CPP} ${TC_HPP} gladsrc/glad.c)
 
@@ -32,6 +32,9 @@ add_subdirectory(glm)
 target_include_directories(tinaxcraft PRIVATE include)
 
 target_include_directories(tinaxcraft PRIVATE PerlinNoise)
+target_include_directories(tinaxcraft PRIVATE glm/glm)
+
+add_dependencies(tinaxcraft glfw glm copy-files)
 
 # find_package(glfw3 CONFIG REQUIRED)
 target_link_libraries(tinaxcraft PRIVATE glfw)
